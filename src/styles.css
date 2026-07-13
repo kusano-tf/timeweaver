@@ -1,0 +1,302 @@
+:root {
+  color: #0f172a;
+  background: #e5e7eb;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1024px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+.fileButton {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+button:hover,
+.fileButton:hover {
+  border-color: #64748b;
+}
+
+button.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+button.danger {
+  color: #b91c1c;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  border-bottom: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 10px 16px;
+}
+
+.titleBlock {
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.appName {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.dirty {
+  color: #b45309;
+  font-size: 12px;
+  opacity: 0;
+}
+
+.dirty.visible {
+  opacity: 1;
+}
+
+.toolbarGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fileButton {
+  position: relative;
+  overflow: hidden;
+}
+
+.fileButton input {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 260px minmax(760px, 1fr) 320px;
+  gap: 0;
+  height: calc(100vh - 64px);
+}
+
+.sidePanel,
+.detailPanel {
+  overflow: auto;
+  border-right: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-right: 0;
+  border-left: 1px solid #cbd5e1;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panelSection {
+  margin-bottom: 22px;
+}
+
+.panelSection h1,
+.panelSection h2,
+.detailPanel h2,
+.fieldGroup h3 {
+  margin: 0 0 10px;
+}
+
+.panelSection h1 {
+  font-size: 20px;
+}
+
+.panelSection p,
+.muted {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagButton.selected {
+  background: #e0f2fe;
+  border-color: #0284c7;
+}
+
+.tagSwatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border-radius: 3px;
+}
+
+.issuePanel {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  padding: 12px;
+}
+
+.issuePanel h2 {
+  margin: 0 0 8px;
+  color: #991b1b;
+  font-size: 15px;
+}
+
+.issuePanel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.issuePanel li {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: #7f1d1d;
+  font-size: 12px;
+}
+
+.timelineShell {
+  overflow: auto;
+  background: #e5e7eb;
+  padding: 18px;
+}
+
+.timelineShell svg {
+  min-width: 1180px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.08);
+}
+
+.laneLabel {
+  fill: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tickLabel {
+  fill: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timelineItem {
+  cursor: grab;
+}
+
+.timelineItem:active {
+  cursor: grabbing;
+}
+
+.itemLabel {
+  fill: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.itemLabel.inBar {
+  fill: #ffffff;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.checkboxLabel input {
+  width: auto;
+}
+
+.dependencyRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+}
