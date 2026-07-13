@@ -1,0 +1,50 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+    "name": "Timeweaver Dev Container",
+    // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "mounts": [
+        // "source=${localEnv:HOME}${localEnv:USERPROFILE}/.gemini,target=/home/vscode/.gemini,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.gemini,target=/home/vscode/.gemini,type=bind,consistency=cached",
+        // "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/vscode/.codex,type=bind,consistency=cached"
+        "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--network=host",
+        "--security-opt=seccomp=unconfined"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "latest",
+            "toolsToInstall": "uv"
+        },
+        "ghcr.io/devcontainers/features/node:2": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+            "moby": true
+        }
+    },
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    // Features to add to the dev container. More info: https://containers.dev/features.
+    // "features": {},
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+    // Use 'postCreateCommand' to run commands after the container is created.
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "biomejs.biome",
+                "eamodio.gitlens",
+                "esbenp.prettier-vscode",
+                "mhutchie.git-graph",
+                "streetsidesoftware.code-spell-checker",
+                "openai.chatgpt"
+            ]
+        }
+    }
+    // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+    // "remoteUser": "root"
+}
