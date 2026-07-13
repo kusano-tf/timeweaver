@@ -32,6 +32,7 @@ export type TimelineAction =
   | { type: "updateItem"; item: TimelineItem }
   | { type: "moveItem"; itemId: string; deltaSeconds: number; laneId?: string }
   | { type: "addItem"; item: TimelineItem }
+  | { type: "copyItem"; itemId: string }
   | { type: "deleteItem"; itemId: string }
   | { type: "addDependency"; dependency: Dependency }
   | { type: "deleteDependency"; dependencyId: string }
@@ -138,6 +139,30 @@ export function timelineReducer(
           items: [...state.document.items, action.item],
         },
       };
+
+    case "copyItem": {
+      const source = state.document.items.find(
+        (item) => item.id === action.itemId,
+      );
+      if (!source) {
+        return state;
+      }
+
+      const copiedItem = copyTimelineItem(
+        source,
+        state.document.items.map((item) => item.id),
+      );
+
+      return {
+        ...state,
+        selectedItemId: copiedItem.id,
+        dirty: true,
+        document: {
+          ...state.document,
+          items: [...state.document.items, copiedItem],
+        },
+      };
+    }
 
     case "deleteItem":
       return {
@@ -274,4 +299,33 @@ export function moveItemToStart(
 ): number {
   const currentStart = item.type === "duration" ? item.start : item.at;
   return secondsBetween(currentStart, nextStart);
+}
+
+function copyTimelineItem(
+  item: TimelineItem,
+  existingItemIds: string[],
+): TimelineItem {
+  return {
+    ...item,
+    id: createCopyId(item.id, existingItemIds),
+    title: createCopyTitle(item.title),
+  };
+}
+
+function createCopyId(sourceId: string, existingItemIds: string[]) {
+  const existing = new Set(existingItemIds);
+  const baseId = `${sourceId}-copy`;
+  let candidate = baseId;
+  let index = 2;
+
+  while (existing.has(candidate)) {
+    candidate = `${baseId}-${index}`;
+    index += 1;
+  }
+
+  return candidate;
+}
+
+function createCopyTitle(sourceTitle: string) {
+  return `${sourceTitle} のコピー`;
 }

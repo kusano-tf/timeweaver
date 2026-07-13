@@ -223,3 +223,32 @@ describe("tag and lane management", () => {
     );
   });
 });
+
+describe("item copy", () => {
+  it("copies the selected item with a new id and title", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "copyItem",
+      itemId: "item-design",
+    });
+
+    const copied = state.document.items.find(
+      (item) => item.id === "item-design-copy",
+    );
+
+    expect(copied?.title).toBe("設計 のコピー");
+    expect(copied?.type).toBe("duration");
+    expect(state.selectedItemId).toBe("item-design-copy");
+    expect(state.dirty).toBe(true);
+  });
+
+  it("does not copy dependencies with the item", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "copyItem",
+      itemId: "item-design",
+    });
+
+    expect(state.document.dependencies).toHaveLength(
+      sampleTimeline.dependencies.length,
+    );
+  });
+});

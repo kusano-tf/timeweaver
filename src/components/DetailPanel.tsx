@@ -33,13 +33,23 @@ export function DetailPanel() {
     <aside className="detailPanel">
       <div className="detailHeader">
         <h2>詳細</h2>
-        <button
-          type="button"
-          className="danger"
-          onClick={() => dispatch({ type: "deleteItem", itemId: selected.id })}
-        >
-          削除
-        </button>
+        <div className="detailActions">
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "copyItem", itemId: selected.id })}
+          >
+            コピー
+          </button>
+          <button
+            type="button"
+            className="danger"
+            onClick={() =>
+              dispatch({ type: "deleteItem", itemId: selected.id })
+            }
+          >
+            削除
+          </button>
+        </div>
       </div>
 
       <label>
