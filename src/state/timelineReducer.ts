@@ -36,7 +36,9 @@ export type TimelineAction =
   | { type: "addDependency"; dependency: Dependency }
   | { type: "deleteDependency"; dependencyId: string }
   | { type: "addTag"; tag: Tag }
+  | { type: "deleteTag"; tagId: string }
   | { type: "addLane"; lane: Lane }
+  | { type: "deleteLane"; laneId: string }
   | { type: "markExported" };
 
 export function timelineReducer(
@@ -206,6 +208,26 @@ export function timelineReducer(
         },
       };
 
+    case "deleteTag":
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          tags: state.document.tags.filter((tag) => tag.id !== action.tagId),
+          items: state.document.items.map((item) => ({
+            ...item,
+            tagIds: item.tagIds.filter((tagId) => tagId !== action.tagId),
+          })),
+          view: {
+            ...state.document.view,
+            visibleTagIds: state.document.view.visibleTagIds.filter(
+              (tagId) => tagId !== action.tagId,
+            ),
+          },
+        },
+      };
+
     case "addLane":
       return {
         ...state,
@@ -213,6 +235,31 @@ export function timelineReducer(
         document: {
           ...state.document,
           lanes: [...state.document.lanes, action.lane],
+        },
+      };
+
+    case "deleteLane":
+      if (state.document.items.some((item) => item.laneId === action.laneId)) {
+        return {
+          ...state,
+          importIssues: [
+            {
+              path: "lanes",
+              message: "アイテムが配置されているレーンは削除できません。",
+            },
+          ],
+        };
+      }
+
+      return {
+        ...state,
+        importIssues: [],
+        dirty: true,
+        document: {
+          ...state.document,
+          lanes: state.document.lanes.filter(
+            (lane) => lane.id !== action.laneId,
+          ),
         },
       };
 

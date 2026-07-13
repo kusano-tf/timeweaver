@@ -165,3 +165,61 @@ describe("tag filtering", () => {
     expect(filtered.map((item) => item.id)).toEqual(["item-design"]);
   });
 });
+
+describe("tag and lane management", () => {
+  it("removes deleted tags from items and the active filter", () => {
+    const state = timelineReducer(
+      {
+        ...stateFor(),
+        document: {
+          ...sampleTimeline,
+          view: {
+            ...sampleTimeline.view,
+            visibleTagIds: ["planning"],
+          },
+        },
+      },
+      { type: "deleteTag", tagId: "planning" },
+    );
+
+    expect(state.document.tags.some((tag) => tag.id === "planning")).toBe(
+      false,
+    );
+    expect(state.document.view.visibleTagIds).toEqual([]);
+    expect(
+      state.document.items.some((item) => item.tagIds.includes("planning")),
+    ).toBe(false);
+  });
+
+  it("rejects deleting lanes that still contain items", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "deleteLane",
+      laneId: "lane-planning",
+    });
+
+    expect(
+      state.document.lanes.some((lane) => lane.id === "lane-planning"),
+    ).toBe(true);
+    expect(state.importIssues[0]?.message).toContain("削除できません");
+  });
+
+  it("deletes empty lanes", () => {
+    const state = timelineReducer(
+      {
+        ...stateFor(),
+        document: {
+          ...sampleTimeline,
+          lanes: [
+            ...sampleTimeline.lanes,
+            { id: "lane-empty", name: "空レーン", order: 99 },
+          ],
+        },
+      },
+      { type: "deleteLane", laneId: "lane-empty" },
+    );
+
+    expect(state.document.lanes.some((lane) => lane.id === "lane-empty")).toBe(
+      false,
+    );
+  });
+});

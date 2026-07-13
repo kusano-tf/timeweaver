@@ -16,16 +16,20 @@ import { type PointerEvent, useMemo, useRef, useState } from "react";
 import { parseDateTime } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
-import type { TimelineItem, TimelineScale } from "../domain/types";
+import type { Lane, TimelineItem, TimelineScale } from "../domain/types";
 import {
   useTimelineDispatch,
   useTimelineState,
 } from "../state/TimelineContext";
 
-const laneHeight = 72;
+const minLaneHeight = 72;
 const headerHeight = 56;
 const leftGutter = 140;
 const width = 1180;
+const itemTopOffset = 20;
+const itemRowStep = 40;
+const itemHeight = 28;
+const itemGap = 8;
 
 export function TimelineSvg() {
   const { document, selectedItemId } = useTimelineState();
@@ -60,13 +64,13 @@ export function TimelineSvg() {
     () => createRange(visibleItems, document.view.scale),
     [visibleItems, document.view.scale],
   );
-  const height = headerHeight + sortedLanes.length * laneHeight + 32;
   const plotWidth = width - leftGutter - 32;
   const totalMs = Math.max(1, range.end.getTime() - range.start.getTime());
   const itemById = new Map(visibleItems.map((item) => [item.id, item]));
-  const laneIndexById = new Map(
-    sortedLanes.map((lane, index) => [lane.id, index]),
-  );
+  const itemLayout = createItemLayout(visibleItems, xForItemStart, xForItemEnd);
+  const laneRowsById = countLaneRows(sortedLanes, itemLayout);
+  const laneGeometry = createLaneGeometry(sortedLanes, laneRowsById);
+  const height = laneGeometry.totalHeight + 32;
 
   function xForDate(date: Date) {
     return (
@@ -84,7 +88,17 @@ export function TimelineSvg() {
   }
 
   function yForLane(laneId: string) {
-    return headerHeight + (laneIndexById.get(laneId) ?? 0) * laneHeight;
+    return laneGeometry.byId.get(laneId)?.top ?? headerHeight;
+  }
+
+  function heightForLane(laneId: string) {
+    return laneGeometry.byId.get(laneId)?.height ?? minLaneHeight;
+  }
+
+  function yForItem(item: TimelineItem) {
+    const laneTop = yForLane(item.laneId);
+    const row = itemLayout.get(item.id)?.row ?? 0;
+    return laneTop + itemTopOffset + row * itemRowStep;
   }
 
   function laneIdForClientY(clientY: number) {
@@ -93,14 +107,15 @@ export function TimelineSvg() {
       return drag?.laneId;
     }
     const y = clientY - rect.top;
-    const index = Math.max(
-      0,
-      Math.min(
-        sortedLanes.length - 1,
-        Math.floor((y - headerHeight) / laneHeight),
-      ),
+    return (
+      sortedLanes.find((lane) => {
+        const geometry = laneGeometry.byId.get(lane.id);
+        if (!geometry) {
+          return false;
+        }
+        return y >= geometry.top && y < geometry.top + geometry.height;
+      })?.id ?? sortedLanes.at(-1)?.id
     );
-    return sortedLanes[index]?.id;
   }
 
   function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
@@ -153,6 +168,7 @@ export function TimelineSvg() {
         />
         {sortedLanes.map((lane) => {
           const y = yForLane(lane.id);
+          const laneHeight = heightForLane(lane.id);
           return (
             <g key={lane.id}>
               <rect
@@ -178,8 +194,8 @@ export function TimelineSvg() {
             }
             const fromX = xForItemEnd(from);
             const toX = xForItemStart(to);
-            const fromY = yForLane(from.laneId) + laneHeight / 2;
-            const toY = yForLane(to.laneId) + laneHeight / 2;
+            const fromY = yForItem(from) + itemHeight / 2;
+            const toY = yForItem(to) + itemHeight / 2;
             const midX = fromX + Math.max(24, (toX - fromX) / 2);
             return (
               <path
@@ -206,7 +222,7 @@ export function TimelineSvg() {
           </marker>
         </defs>
         {visibleItems.map((item) => {
-          const y = yForLane(item.laneId) + 20;
+          const y = yForItem(item);
           const color = getItemColor(item, tagsById);
           const isSelected = item.id === selectedItemId;
           if (item.type === "instant") {
@@ -380,4 +396,84 @@ function formatTick(scale: TimelineScale, date: Date) {
     return format(date, "MM-dd");
   }
   return format(date, "HH:mm");
+}
+
+type ItemLayout = {
+  laneId: string;
+  row: number;
+  xStart: number;
+  xEnd: number;
+};
+
+function createItemLayout(
+  items: TimelineItem[],
+  xForItemStart: (item: TimelineItem) => number,
+  xForItemEnd: (item: TimelineItem) => number,
+): Map<string, ItemLayout> {
+  const layout = new Map<string, ItemLayout>();
+  const rowsByLane = new Map<string, number[]>();
+  const sortedItems = [...items].sort((a, b) => {
+    const startDiff = xForItemStart(a) - xForItemStart(b);
+    if (startDiff !== 0) {
+      return startDiff;
+    }
+    return xForItemEnd(a) - xForItemEnd(b);
+  });
+
+  for (const item of sortedItems) {
+    const xStart = xForItemStart(item);
+    const xEnd = visualEndForItem(item, xStart, xForItemEnd(item));
+    const rows = rowsByLane.get(item.laneId) ?? [];
+    const row = firstAvailableRow(rows, xStart);
+
+    rows[row] = xEnd + itemGap;
+    rowsByLane.set(item.laneId, rows);
+    layout.set(item.id, { laneId: item.laneId, row, xStart, xEnd });
+  }
+
+  return layout;
+}
+
+function visualEndForItem(item: TimelineItem, xStart: number, xEnd: number) {
+  if (item.type === "instant") {
+    return xStart + Math.max(64, item.title.length * 9 + 32);
+  }
+
+  return xStart + Math.max(48, xEnd - xStart, item.title.length * 8 + 24);
+}
+
+function firstAvailableRow(rowEnds: number[], xStart: number) {
+  const row = rowEnds.findIndex((rowEnd) => rowEnd <= xStart);
+  return row === -1 ? rowEnds.length : row;
+}
+
+function countLaneRows(
+  lanes: Lane[],
+  itemLayout: Map<string, ItemLayout>,
+): Map<string, number> {
+  const rowsByLane = new Map(lanes.map((lane) => [lane.id, 1]));
+
+  for (const layout of itemLayout.values()) {
+    const current = rowsByLane.get(layout.laneId) ?? 1;
+    rowsByLane.set(layout.laneId, Math.max(current, layout.row + 1));
+  }
+
+  return rowsByLane;
+}
+
+function createLaneGeometry(lanes: Lane[], laneRowsById: Map<string, number>) {
+  const byId = new Map<string, { top: number; height: number }>();
+  let top = headerHeight;
+
+  for (const lane of lanes) {
+    const rows = laneRowsById.get(lane.id) ?? 1;
+    const height = Math.max(
+      minLaneHeight,
+      itemTopOffset + rows * itemRowStep + itemHeight / 2,
+    );
+    byId.set(lane.id, { top, height });
+    top += height;
+  }
+
+  return { byId, totalHeight: top };
 }
