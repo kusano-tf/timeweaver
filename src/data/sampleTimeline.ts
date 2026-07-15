@@ -12,9 +12,9 @@ export const sampleTimeline: TimelineDocument = {
     { id: "lane-release", name: "リリース", order: 2 },
   ],
   tags: [
-    { id: "planning", name: "Planning", color: "#2563eb" },
-    { id: "build", name: "Build", color: "#059669" },
-    { id: "release", name: "Release", color: "#dc2626" },
+    { id: "planning", name: "Planning", color: "#2563eb", order: 0 },
+    { id: "build", name: "Build", color: "#059669", order: 1 },
+    { id: "release", name: "Release", color: "#dc2626", order: 2 },
   ],
   items: [
     {
@@ -24,6 +24,7 @@ export const sampleTimeline: TimelineDocument = {
       description: "基本設計を固める",
       laneId: "lane-planning",
       tagIds: ["planning"],
+      colorTagId: null,
       color: null,
       start: "2026-07-13T09:00:00",
       end: "2026-07-15T18:00:00",
@@ -35,6 +36,7 @@ export const sampleTimeline: TimelineDocument = {
       description: "初期版の主要機能を実装する",
       laneId: "lane-build",
       tagIds: ["build"],
+      colorTagId: null,
       color: null,
       start: "2026-07-16T09:00:00",
       end: "2026-07-20T18:00:00",
@@ -46,6 +48,7 @@ export const sampleTimeline: TimelineDocument = {
       description: "初期版を公開する",
       laneId: "lane-release",
       tagIds: ["release"],
+      colorTagId: null,
       color: null,
       at: "2026-07-21T10:00:00",
     },

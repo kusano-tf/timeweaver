@@ -1,6 +1,7 @@
 import { secondsBetween } from "../domain/datetime";
+import { getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
-import type { Dependency, TimelineItem } from "../domain/types";
+import type { Dependency, Tag, TimelineItem } from "../domain/types";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -11,6 +12,9 @@ export function DetailPanel() {
   const dispatch = useTimelineDispatch();
   const selected =
     document.items.find((item) => item.id === selectedItemId) ?? null;
+  const sortedLanes = sortByOrder(document.lanes);
+  const sortedTags = sortByOrder(document.tags);
+  const tagsById = new Map(document.tags.map((tag) => [tag.id, tag]));
 
   if (!selected) {
     return (
@@ -80,7 +84,7 @@ export function DetailPanel() {
             updateItem({ ...selected, laneId: event.target.value })
           }
         >
-          {document.lanes.map((lane) => (
+          {sortedLanes.map((lane) => (
             <option key={lane.id} value={lane.id}>
               {lane.name}
             </option>
@@ -121,20 +125,16 @@ export function DetailPanel() {
         </label>
       )}
 
-      <label>
-        アイテム色
-        <input
-          value={selected.color ?? ""}
-          placeholder="#2563eb"
-          onChange={(event) =>
-            updateItem({ ...selected, color: event.target.value || null })
-          }
-        />
-      </label>
+      <ColorControls
+        selected={selected}
+        sortedTags={sortedTags}
+        tagsById={tagsById}
+        updateItem={updateItem}
+      />
 
       <section className="fieldGroup">
         <h3>タグ</h3>
-        {document.tags.map((tag) => (
+        {sortedTags.map((tag) => (
           <label className="checkboxLabel" key={tag.id}>
             <input
               type="checkbox"
@@ -164,6 +164,71 @@ export function DetailPanel() {
         )}
       </section>
     </aside>
+  );
+}
+
+function ColorControls({
+  selected,
+  sortedTags,
+  tagsById,
+  updateItem,
+}: {
+  selected: TimelineItem;
+  sortedTags: Tag[];
+  tagsById: Map<string, Tag>;
+  updateItem: (next: TimelineItem) => void;
+}) {
+  const selectedTags = sortedTags.filter((tag) =>
+    selected.tagIds.includes(tag.id),
+  );
+  const colorMode = selected.color ? "custom" : (selected.colorTagId ?? "");
+
+  return (
+    <section className="fieldGroup">
+      <h3>色</h3>
+      <label>
+        色の決め方
+        <select
+          value={colorMode}
+          onChange={(event) => {
+            const nextMode = event.target.value;
+            if (nextMode === "custom") {
+              updateItem({
+                ...selected,
+                color: selected.color ?? getItemColor(selected, tagsById),
+              });
+              return;
+            }
+
+            updateItem({
+              ...selected,
+              color: null,
+              colorTagId: nextMode || null,
+            });
+          }}
+        >
+          <option value="">自動（先頭タグ）</option>
+          {selectedTags.map((tag) => (
+            <option key={tag.id} value={tag.id}>
+              自動（{tag.name}）
+            </option>
+          ))}
+          <option value="custom">カスタム色</option>
+        </select>
+      </label>
+      {selected.color && (
+        <label>
+          カスタム色
+          <input
+            type="color"
+            value={selected.color}
+            onChange={(event) =>
+              updateItem({ ...selected, color: event.target.value })
+            }
+          />
+        </label>
+      )}
+    </section>
   );
 }
 
@@ -223,4 +288,11 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
       </button>
     </div>
   );
+}
+
+function sortByOrder<T extends { order: number }>(values: T[]): T[] {
+  return values
+    .map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value.order - b.value.order || a.index - b.index)
+    .map(({ value }) => value);
 }

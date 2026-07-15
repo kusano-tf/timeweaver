@@ -57,7 +57,7 @@ export function Toolbar() {
   }
 
   function addDurationItem() {
-    const firstLane = document.lanes[0];
+    const firstLane = sortByOrder(document.lanes)[0];
     if (!firstLane) {
       return;
     }
@@ -70,6 +70,7 @@ export function Toolbar() {
       description: "",
       laneId: firstLane.id,
       tagIds: [],
+      colorTagId: null,
       color: null,
       start: "2026-07-13T09:00:00",
       end: "2026-07-14T09:00:00",
@@ -78,7 +79,7 @@ export function Toolbar() {
   }
 
   function addInstantItem() {
-    const firstLane = document.lanes[0];
+    const firstLane = sortByOrder(document.lanes)[0];
     if (!firstLane) {
       return;
     }
@@ -91,6 +92,7 @@ export function Toolbar() {
       description: "",
       laneId: firstLane.id,
       tagIds: [],
+      colorTagId: null,
       color: null,
       at: "2026-07-13T09:00:00",
     };
@@ -209,4 +211,11 @@ function exportTimelinePng(title: string) {
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}`;
+}
+
+function sortByOrder<T extends { order: number }>(values: T[]): T[] {
+  return values
+    .map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value.order - b.value.order || a.index - b.index)
+    .map(({ value }) => value);
 }

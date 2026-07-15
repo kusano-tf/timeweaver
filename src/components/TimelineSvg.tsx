@@ -51,7 +51,7 @@ export function TimelineSvg() {
     [document.tags],
   );
   const sortedLanes = useMemo(
-    () => [...document.lanes].sort((a, b) => a.order - b.order),
+    () => sortByOrder(document.lanes),
     [document.lanes],
   );
   const itemIds = new Set(visibleItems.map((item) => item.id));
@@ -476,4 +476,11 @@ function createLaneGeometry(lanes: Lane[], laneRowsById: Map<string, number>) {
   }
 
   return { byId, totalHeight: top };
+}
+
+function sortByOrder<T extends { order: number }>(values: T[]): T[] {
+  return values
+    .map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value.order - b.value.order || a.index - b.index)
+    .map(({ value }) => value);
 }

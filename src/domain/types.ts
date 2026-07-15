@@ -20,6 +20,7 @@ export type Tag = {
   id: string;
   name: string;
   color: string;
+  order: number;
 };
 
 export type BaseItem = {
@@ -28,6 +29,7 @@ export type BaseItem = {
   description?: string;
   laneId: string;
   tagIds: string[];
+  colorTagId: string | null;
   color: string | null;
 };
 

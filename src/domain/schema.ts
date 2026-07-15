@@ -22,6 +22,7 @@ const baseItemSchema = z.object({
   description: z.string().optional(),
   laneId: z.string().min(1),
   tagIds: z.array(z.string().min(1)),
+  colorTagId: z.string().min(1).nullable(),
   color: colorSchema.nullable(),
 });
 
@@ -59,6 +60,7 @@ export const timelineDocumentSchema = z.object({
       id: z.string().min(1),
       name: z.string().min(1),
       color: colorSchema,
+      order: z.number().int(),
     }),
   ),
   items: z.array(
@@ -138,6 +140,20 @@ export function validateDocumentIntegrity(
         });
       }
     });
+
+    if (item.colorTagId !== null) {
+      if (!tagIds.has(item.colorTagId)) {
+        issues.push({
+          path: `items.${itemIndex}.colorTagId`,
+          message: `存在しないタグ ID です: ${item.colorTagId}`,
+        });
+      } else if (!item.tagIds.includes(item.colorTagId)) {
+        issues.push({
+          path: `items.${itemIndex}.colorTagId`,
+          message: `色に使うタグは item.tagIds に含めてください: ${item.colorTagId}`,
+        });
+      }
+    }
   });
 
   document.dependencies.forEach((dependency, dependencyIndex) => {

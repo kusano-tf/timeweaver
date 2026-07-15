@@ -156,6 +156,7 @@ describe("tag filtering", () => {
         description: "",
         laneId: "lane-planning",
         tagIds: [],
+        colorTagId: null,
         color: null,
         at: "2026-07-13T09:00:00",
       },
@@ -189,6 +190,44 @@ describe("tag and lane management", () => {
     expect(
       state.document.items.some((item) => item.tagIds.includes("planning")),
     ).toBe(false);
+  });
+
+  it("clears colorTagId when its tag is deleted", () => {
+    const document = structuredClone(sampleTimeline);
+    document.items[0].colorTagId = "planning";
+
+    const state = timelineReducer(stateFor(document), {
+      type: "deleteTag",
+      tagId: "planning",
+    });
+
+    expect(state.document.items[0].colorTagId).toBeNull();
+  });
+
+  it("normalizes tag order after reordering tags", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "reorderTags",
+      tagIds: ["release", "planning", "build"],
+    });
+
+    expect(state.document.tags.map((tag) => [tag.id, tag.order])).toEqual([
+      ["release", 0],
+      ["planning", 1],
+      ["build", 2],
+    ]);
+  });
+
+  it("normalizes lane order after reordering lanes", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "reorderLanes",
+      laneIds: ["lane-release", "lane-planning", "lane-build"],
+    });
+
+    expect(state.document.lanes.map((lane) => [lane.id, lane.order])).toEqual([
+      ["lane-release", 0],
+      ["lane-planning", 1],
+      ["lane-build", 2],
+    ]);
   });
 
   it("rejects deleting lanes that still contain items", () => {

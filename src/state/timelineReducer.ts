@@ -38,8 +38,10 @@ export type TimelineAction =
   | { type: "deleteDependency"; dependencyId: string }
   | { type: "addTag"; tag: Tag }
   | { type: "deleteTag"; tagId: string }
+  | { type: "reorderTags"; tagIds: string[] }
   | { type: "addLane"; lane: Lane }
   | { type: "deleteLane"; laneId: string }
+  | { type: "reorderLanes"; laneIds: string[] }
   | { type: "markExported" };
 
 export function timelineReducer(
@@ -88,17 +90,18 @@ export function timelineReducer(
     }
 
     case "updateItem": {
+      const nextItem = normalizeItemColorTag(action.item);
       const document = {
         ...state.document,
         items: state.document.items.map((item) =>
-          item.id === action.item.id ? action.item : item,
+          item.id === nextItem.id ? nextItem : item,
         ),
       };
 
       return {
         ...state,
         dirty: true,
-        document: recalculateIncomingLagSeconds(document, action.item.id),
+        document: recalculateIncomingLagSeconds(document, nextItem.id),
       };
     }
 
@@ -243,6 +246,8 @@ export function timelineReducer(
           items: state.document.items.map((item) => ({
             ...item,
             tagIds: item.tagIds.filter((tagId) => tagId !== action.tagId),
+            colorTagId:
+              item.colorTagId === action.tagId ? null : item.colorTagId,
           })),
           view: {
             ...state.document.view,
@@ -250,6 +255,16 @@ export function timelineReducer(
               (tagId) => tagId !== action.tagId,
             ),
           },
+        },
+      };
+
+    case "reorderTags":
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          tags: reorderByIds(state.document.tags, action.tagIds),
         },
       };
 
@@ -285,6 +300,16 @@ export function timelineReducer(
           lanes: state.document.lanes.filter(
             (lane) => lane.id !== action.laneId,
           ),
+        },
+      };
+
+    case "reorderLanes":
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          lanes: reorderByIds(state.document.lanes, action.laneIds),
         },
       };
 
@@ -324,6 +349,31 @@ function createCopyId(sourceId: string, existingItemIds: string[]) {
   }
 
   return candidate;
+}
+
+function normalizeItemColorTag(item: TimelineItem): TimelineItem {
+  if (item.colorTagId === null || item.tagIds.includes(item.colorTagId)) {
+    return item;
+  }
+
+  return { ...item, colorTagId: null };
+}
+
+function reorderByIds<T extends { id: string; order: number }>(
+  values: T[],
+  orderedIds: string[],
+): T[] {
+  const valuesById = new Map(values.map((value) => [value.id, value]));
+  const ordered = orderedIds.flatMap((id) => {
+    const value = valuesById.get(id);
+    return value ? [value] : [];
+  });
+  const remaining = values.filter((value) => !orderedIds.includes(value.id));
+
+  return [...ordered, ...remaining].map((value, order) => ({
+    ...value,
+    order,
+  }));
 }
 
 function createCopyTitle(sourceTitle: string) {

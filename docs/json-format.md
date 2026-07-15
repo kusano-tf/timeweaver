@@ -84,7 +84,8 @@ YYYY-MM-DDTHH:mm:ss
   {
     "id": "planning",
     "name": "Planning",
-    "color": "#2563eb"
+    "color": "#2563eb",
+    "order": 0
   }
 ]
 ```
@@ -92,6 +93,7 @@ YYYY-MM-DDTHH:mm:ss
 - `id`: タグ ID。アイテムの `tagIds` から参照される。
 - `name`: 表示名。
 - `color`: タグ色。CSS hex color を想定する。
+- `order`: 表示順。重複時は配列順で安定ソートする。アプリで並べ替えた後は `0` 始まりの連番へ正規化する。
 
 ## `items`
 
@@ -107,6 +109,7 @@ YYYY-MM-DDTHH:mm:ss
   "description": "Optional description",
   "laneId": "lane-1",
   "tagIds": ["planning"],
+  "colorTagId": null,
   "color": null
 }
 ```
@@ -117,13 +120,15 @@ YYYY-MM-DDTHH:mm:ss
 - `description`: 任意の説明。
 - `laneId`: 所属レーン ID。
 - `tagIds`: タグ ID 配列。
+- `colorTagId`: 自動色に使うタグ ID。`null` の場合は `tagIds` の先頭タグを使う。指定する場合は `tagIds` に含まれるタグ ID でなければならない。
 - `color`: アイテム固有色。未指定の場合は `null`。
 
 表示色の優先順位:
 
 1. アイテムの `color`
-2. 先頭タグの `color`
-3. デフォルト色
+2. `colorTagId` で指定したタグの `color`
+3. `tagIds` の先頭タグの `color`
+4. デフォルト色
 
 ### 期間アイテム
 
@@ -135,6 +140,7 @@ YYYY-MM-DDTHH:mm:ss
   "description": "Optional description",
   "laneId": "lane-1",
   "tagIds": ["planning"],
+  "colorTagId": null,
   "color": null,
   "start": "2026-07-13T09:00:00",
   "end": "2026-07-15T18:00:00"
@@ -155,6 +161,7 @@ YYYY-MM-DDTHH:mm:ss
   "description": "Optional description",
   "laneId": "lane-2",
   "tagIds": ["release"],
+  "colorTagId": null,
   "color": null,
   "at": "2026-07-20T10:00:00"
 }
@@ -227,6 +234,7 @@ to.start = from.end + lagSeconds
 - 期間アイテムの `end` が `start` より後であること。
 - `laneId` が存在するレーンを参照していること。
 - `tagIds` が存在するタグを参照していること。
+- `colorTagId` が `null` でない場合、存在するタグかつ同じアイテムの `tagIds` に含まれるタグを参照していること。
 - `dependencies.fromId` と `dependencies.toId` が存在するアイテムを参照していること。
 - 依存関係が循環していないこと。
 - ID が各配列内で重複していないこと。
@@ -246,8 +254,8 @@ to.start = from.end + lagSeconds
     { "id": "lane-release", "name": "リリース", "order": 1 }
   ],
   "tags": [
-    { "id": "planning", "name": "Planning", "color": "#2563eb" },
-    { "id": "release", "name": "Release", "color": "#dc2626" }
+    { "id": "planning", "name": "Planning", "color": "#2563eb", "order": 0 },
+    { "id": "release", "name": "Release", "color": "#dc2626", "order": 1 }
   ],
   "items": [
     {
@@ -257,6 +265,7 @@ to.start = from.end + lagSeconds
       "description": "基本設計を固める",
       "laneId": "lane-planning",
       "tagIds": ["planning"],
+      "colorTagId": null,
       "color": null,
       "start": "2026-07-13T09:00:00",
       "end": "2026-07-15T18:00:00"
@@ -268,6 +277,7 @@ to.start = from.end + lagSeconds
       "description": "初期版を公開する",
       "laneId": "lane-release",
       "tagIds": ["release"],
+      "colorTagId": null,
       "color": null,
       "at": "2026-07-20T10:00:00"
     }

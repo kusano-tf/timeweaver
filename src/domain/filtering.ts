@@ -22,6 +22,10 @@ export function getItemColor(
     return item.color;
   }
 
+  if (item.colorTagId) {
+    return tagsById.get(item.colorTagId)?.color ?? "#64748b";
+  }
+
   const firstTag = item.tagIds[0];
   if (firstTag) {
     return tagsById.get(firstTag)?.color ?? "#64748b";
