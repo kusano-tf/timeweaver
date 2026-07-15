@@ -118,6 +118,14 @@ label {
 }
 
 .fileButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: #0f172a;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: normal;
   position: relative;
   overflow: hidden;
 }
