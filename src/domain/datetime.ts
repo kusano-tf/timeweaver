@@ -9,6 +9,7 @@ import {
 import type { DateTimeString } from "./types";
 
 const dateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+const dateTimeLocalMinutePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const dateTimeFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
 export function isDateTimeString(value: string): value is DateTimeString {
@@ -17,6 +18,10 @@ export function isDateTimeString(value: string): value is DateTimeString {
   }
 
   const parsed = parseDateTime(value);
+  if (!isValid(parsed)) {
+    return false;
+  }
+
   return formatDateTime(parsed) === value;
 }
 
@@ -30,6 +35,19 @@ export function formatDateTime(value: Date): DateTimeString {
 
 export function compareDateTime(a: DateTimeString, b: DateTimeString): number {
   return parseDateTime(a).getTime() - parseDateTime(b).getTime();
+}
+
+export function toDateTimeLocalMinute(value: DateTimeString): string {
+  return value.slice(0, 16);
+}
+
+export function fromDateTimeLocalMinute(value: string): DateTimeString | null {
+  if (!dateTimeLocalMinutePattern.test(value)) {
+    return null;
+  }
+
+  const dateTime = `${value}:00`;
+  return isDateTimeString(dateTime) ? dateTime : null;
 }
 
 export function addSecondsToDateTime(

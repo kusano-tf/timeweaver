@@ -1,7 +1,19 @@
-import { secondsBetween } from "../domain/datetime";
+import { useEffect, useState } from "react";
+
+import {
+  compareDateTime,
+  fromDateTimeLocalMinute,
+  secondsBetween,
+  toDateTimeLocalMinute,
+} from "../domain/datetime";
 import { getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
-import type { Dependency, Tag, TimelineItem } from "../domain/types";
+import type {
+  DateTimeString,
+  Dependency,
+  Tag,
+  TimelineItem,
+} from "../domain/types";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -94,33 +106,45 @@ export function DetailPanel() {
 
       {selected.type === "duration" ? (
         <>
-          <label>
+          <label htmlFor={`${selected.id}-start`}>
             開始
-            <input
+            <DateTimeInput
+              id={`${selected.id}-start`}
               value={selected.start}
-              onChange={(event) =>
-                updateItem({ ...selected, start: event.target.value })
-              }
+              onChange={(start) => {
+                if (compareDateTime(start, selected.end) < 0) {
+                  updateItem({ ...selected, start });
+                  return true;
+                }
+                return false;
+              }}
             />
           </label>
-          <label>
+          <label htmlFor={`${selected.id}-end`}>
             終了
-            <input
+            <DateTimeInput
+              id={`${selected.id}-end`}
               value={selected.end}
-              onChange={(event) =>
-                updateItem({ ...selected, end: event.target.value })
-              }
+              onChange={(end) => {
+                if (compareDateTime(selected.start, end) < 0) {
+                  updateItem({ ...selected, end });
+                  return true;
+                }
+                return false;
+              }}
             />
           </label>
         </>
       ) : (
-        <label>
+        <label htmlFor={`${selected.id}-at`}>
           日時
-          <input
+          <DateTimeInput
+            id={`${selected.id}-at`}
             value={selected.at}
-            onChange={(event) =>
-              updateItem({ ...selected, at: event.target.value })
-            }
+            onChange={(at) => {
+              updateItem({ ...selected, at });
+              return true;
+            }}
           />
         </label>
       )}
@@ -164,6 +188,50 @@ export function DetailPanel() {
         )}
       </section>
     </aside>
+  );
+}
+
+function DateTimeInput({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: DateTimeString;
+  onChange: (value: DateTimeString) => boolean;
+}) {
+  const [inputValue, setInputValue] = useState(toDateTimeLocalMinute(value));
+
+  useEffect(() => {
+    setInputValue(toDateTimeLocalMinute(value));
+  }, [value]);
+
+  function reset() {
+    setInputValue(toDateTimeLocalMinute(value));
+  }
+
+  return (
+    <input
+      id={id}
+      type="datetime-local"
+      step={60}
+      value={inputValue}
+      onBlur={() => {
+        const next = fromDateTimeLocalMinute(inputValue);
+        if (!next || (next !== value && !onChange(next))) {
+          reset();
+        }
+      }}
+      onChange={(event) => {
+        const nextInputValue = event.target.value;
+        setInputValue(nextInputValue);
+
+        const next = fromDateTimeLocalMinute(nextInputValue);
+        if (next) {
+          onChange(next);
+        }
+      }}
+    />
   );
 }
 

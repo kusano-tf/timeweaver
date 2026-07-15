@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { sampleTimeline } from "../data/sampleTimeline";
 import { type TimelineState, timelineReducer } from "../state/timelineReducer";
+import { fromDateTimeLocalMinute, toDateTimeLocalMinute } from "./datetime";
 import { filterItemsByTags } from "./filtering";
 import { parseTimelineDocument } from "./schema";
 import type { TimelineDocument } from "./types";
@@ -75,6 +76,25 @@ describe("timeline schema", () => {
         result.issues.some((issue) => issue.message.includes("循環")),
       ).toBe(true);
     }
+  });
+});
+
+describe("datetime input formatting", () => {
+  it("converts timeline datetimes to datetime-local minute values", () => {
+    expect(toDateTimeLocalMinute("2026-07-13T09:30:45")).toBe(
+      "2026-07-13T09:30",
+    );
+  });
+
+  it("converts datetime-local minute values back to timeline datetimes", () => {
+    expect(fromDateTimeLocalMinute("2026-07-13T09:30")).toBe(
+      "2026-07-13T09:30:00",
+    );
+  });
+
+  it("rejects invalid datetime-local minute values", () => {
+    expect(fromDateTimeLocalMinute("2026-02-30T09:30")).toBeNull();
+    expect(fromDateTimeLocalMinute("")).toBeNull();
   });
 });
 
