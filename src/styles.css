@@ -26,12 +26,40 @@ textarea {
 
 button,
 .fileButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
   color: #0f172a;
   cursor: pointer;
   padding: 8px 12px;
+}
+
+button svg,
+.fileButton svg {
+  flex: 0 0 auto;
+}
+
+.iconButton {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.compactIconButton {
+  width: 28px;
+  height: 28px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 button:hover,
@@ -118,9 +146,6 @@ label {
 }
 
 .fileButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: 0;
   color: #0f172a;
   font-size: inherit;
@@ -226,14 +251,18 @@ label {
   margin-bottom: 10px;
 }
 
+.tagInlineForm {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.laneInlineForm {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .inlineForm .colorInput {
   width: 44px;
   min-width: 44px;
   padding: 4px;
-}
-
-.inlineForm .colorInput + button {
-  grid-column: 1 / -1;
 }
 
 .managementList {

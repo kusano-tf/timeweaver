@@ -1,3 +1,4 @@
+import { Copy, Trash2, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -52,18 +53,23 @@ export function DetailPanel() {
         <div className="detailActions">
           <button
             type="button"
+            className="iconButton"
+            aria-label="コピー"
+            title="コピー"
             onClick={() => dispatch({ type: "copyItem", itemId: selected.id })}
           >
-            コピー
+            <Copy aria-hidden="true" size={16} />
           </button>
           <button
             type="button"
-            className="danger"
+            className="danger iconButton"
+            aria-label="削除"
+            title="削除"
             onClick={() =>
               dispatch({ type: "deleteItem", itemId: selected.id })
             }
           >
-            削除
+            <Trash2 aria-hidden="true" size={16} />
           </button>
         </div>
       </div>
@@ -351,11 +357,14 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
       <code>{dependency.lagSeconds}s</code>
       <button
         type="button"
+        className="iconButton compactIconButton"
+        aria-label="依存関係を外す"
+        title="依存関係を外す"
         onClick={() =>
           dispatch({ type: "deleteDependency", dependencyId: dependency.id })
         }
       >
-        外す
+        <Unlink aria-hidden="true" size={14} />
       </button>
     </div>
   );

@@ -1,3 +1,11 @@
+import {
+  CalendarPlus,
+  ClockPlus,
+  Download,
+  ImageDown,
+  Upload,
+} from "lucide-react";
+
 import { parseTimelineDocument } from "../domain/schema";
 import type {
   TimelineDocument,
@@ -108,8 +116,13 @@ export function Toolbar() {
         </span>
       </div>
       <div className="toolbarGroup">
-        <label className="fileButton">
-          JSON読込
+        <label
+          aria-label="JSON読込"
+          className="fileButton iconButton"
+          title="JSON読込"
+        >
+          <Upload aria-hidden="true" size={16} />
+          <span className="srOnly">JSON読込</span>
           <input
             type="file"
             accept="application/json,.json"
@@ -122,14 +135,23 @@ export function Toolbar() {
             }}
           />
         </label>
-        <button type="button" onClick={exportJson}>
-          JSON出力
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="JSON出力"
+          title="JSON出力"
+          onClick={exportJson}
+        >
+          <Download aria-hidden="true" size={16} />
         </button>
         <button
           type="button"
+          className="iconButton"
+          aria-label="PNG出力"
+          title="PNG出力"
           onClick={() => exportTimelinePng(document.timeline.title)}
         >
-          PNG出力
+          <ImageDown aria-hidden="true" size={16} />
         </button>
       </div>
       <div className="toolbarGroup">
@@ -145,11 +167,23 @@ export function Toolbar() {
         ))}
       </div>
       <div className="toolbarGroup">
-        <button type="button" onClick={addDurationItem}>
-          期間追加
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="期間追加"
+          title="期間追加"
+          onClick={addDurationItem}
+        >
+          <CalendarPlus aria-hidden="true" size={16} />
         </button>
-        <button type="button" onClick={addInstantItem}>
-          時点追加
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="時点追加"
+          title="時点追加"
+          onClick={addInstantItem}
+        >
+          <ClockPlus aria-hidden="true" size={16} />
         </button>
       </div>
     </header>

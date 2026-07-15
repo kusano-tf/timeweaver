@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Lane, Tag } from "../domain/types";
@@ -144,7 +145,7 @@ export function TagFilters() {
       <section className="panelSection">
         <h2>タグ管理</h2>
         <form
-          className="inlineForm"
+          className="inlineForm tagInlineForm"
           action={(formData) => {
             addTag(formData);
           }}
@@ -157,7 +158,14 @@ export function TagFilters() {
             type="color"
             defaultValue={defaultTagColor}
           />
-          <button type="submit">追加</button>
+          <button
+            type="submit"
+            className="iconButton"
+            aria-label="タグを追加"
+            title="タグを追加"
+          >
+            <Plus aria-hidden="true" size={16} />
+          </button>
         </form>
         <DndContext
           collisionDetection={closestCenter}
@@ -180,13 +188,20 @@ export function TagFilters() {
       <section className="panelSection">
         <h2>レーン管理</h2>
         <form
-          className="inlineForm"
+          className="inlineForm laneInlineForm"
           action={(formData) => {
             addLane(formData);
           }}
         >
           <input name="laneName" placeholder="レーン名" />
-          <button type="submit">追加</button>
+          <button
+            type="submit"
+            className="iconButton"
+            aria-label="レーンを追加"
+            title="レーンを追加"
+          >
+            <Plus aria-hidden="true" size={16} />
+          </button>
         </form>
         <DndContext
           collisionDetection={closestCenter}
@@ -258,7 +273,7 @@ function SortableTagRow({ tag }: { tag: Tag }) {
         {...sortable.attributes}
         {...sortable.listeners}
       >
-        ⋮⋮
+        <GripVertical aria-hidden="true" size={16} />
       </button>
       <input
         aria-label={`${tag.name} の色`}
@@ -288,10 +303,12 @@ function SortableTagRow({ tag }: { tag: Tag }) {
       />
       <button
         type="button"
-        className="danger compactButton"
+        className="danger iconButton compactIconButton"
+        aria-label={`${tag.name} を削除`}
+        title={`${tag.name} を削除`}
         onClick={() => dispatch({ type: "deleteTag", tagId: tag.id })}
       >
-        削除
+        <Trash2 aria-hidden="true" size={14} />
       </button>
     </div>
   );
@@ -343,7 +360,7 @@ function SortableLaneRow({
         {...sortable.attributes}
         {...sortable.listeners}
       >
-        ⋮⋮
+        <GripVertical aria-hidden="true" size={16} />
       </button>
       <input
         aria-label={`${lane.name} の名前`}
@@ -361,7 +378,8 @@ function SortableLaneRow({
       <span className="muted">{itemCount}件</span>
       <button
         type="button"
-        className="danger compactButton"
+        className="danger iconButton compactIconButton"
+        aria-label={`${lane.name} を削除`}
         disabled={itemCount > 0}
         title={
           itemCount > 0
@@ -370,7 +388,7 @@ function SortableLaneRow({
         }
         onClick={() => dispatch({ type: "deleteLane", laneId: lane.id })}
       >
-        削除
+        <Trash2 aria-hidden="true" size={14} />
       </button>
     </div>
   );
