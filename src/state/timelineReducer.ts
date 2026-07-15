@@ -4,7 +4,7 @@ import {
   propagateMove,
   recalculateIncomingLagSeconds,
 } from "../domain/dependencies";
-import { moveItemBySeconds } from "../domain/items";
+import { getItemEnd, moveItemBySeconds } from "../domain/items";
 import type {
   DateTimeString,
   Dependency,
@@ -93,17 +93,30 @@ export function timelineReducer(
 
     case "updateItem": {
       const nextItem = normalizeItemColorTag(action.item);
-      const document = {
+      const currentItem = state.document.items.find(
+        (item) => item.id === nextItem.id,
+      );
+      const endDeltaSeconds = currentItem
+        ? secondsBetween(getItemEnd(currentItem), getItemEnd(nextItem))
+        : 0;
+      const updatedDocument = {
         ...state.document,
         items: state.document.items.map((item) =>
           item.id === nextItem.id ? nextItem : item,
         ),
       };
+      const propagatedDocument =
+        endDeltaSeconds === 0
+          ? updatedDocument
+          : propagateMove(updatedDocument, nextItem.id, endDeltaSeconds);
 
       return {
         ...state,
         dirty: true,
-        document: recalculateIncomingLagSeconds(document, nextItem.id),
+        document: recalculateIncomingLagSeconds(
+          propagatedDocument,
+          nextItem.id,
+        ),
       };
     }
 

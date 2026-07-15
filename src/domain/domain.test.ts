@@ -137,6 +137,191 @@ describe("dependency behavior", () => {
     expect(dependency?.lagSeconds).toBe(140_400);
   });
 
+  it("moves downstream items when a predecessor end changes", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-16T18:00:00" },
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+    const release = state.document.items.find(
+      (item) => item.id === "item-release",
+    );
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-17T09:00:00");
+      expect(build.end).toBe("2026-07-21T18:00:00");
+    }
+
+    expect(release?.type).toBe("instant");
+    if (release?.type === "instant") {
+      expect(release.at).toBe("2026-07-22T10:00:00");
+    }
+
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(54_000);
+  });
+
+  it("does not move downstream items when only a predecessor start changes", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, start: "2026-07-12T09:00:00" },
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-16T09:00:00");
+      expect(build.end).toBe("2026-07-20T18:00:00");
+    }
+  });
+
+  it("moves downstream items when an instant predecessor changes", () => {
+    const document = structuredClone(sampleTimeline);
+    const release = document.items.find((item) => item.id === "item-release");
+    if (release?.type !== "instant") {
+      throw new Error("Expected instant item");
+    }
+    document.dependencies.push({
+      id: "dep-release-followup",
+      fromId: "item-release",
+      toId: "item-followup",
+      type: "finish-to-start",
+      lagSeconds: 86_400,
+    });
+    document.items.push({
+      id: "item-followup",
+      type: "instant",
+      title: "フォローアップ",
+      description: "",
+      laneId: "lane-release",
+      tagIds: ["release"],
+      colorTagId: null,
+      color: null,
+      at: "2026-07-22T10:00:00",
+    });
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...release, at: "2026-07-22T10:00:00" },
+    });
+
+    const followup = state.document.items.find(
+      (item) => item.id === "item-followup",
+    );
+
+    expect(followup?.type).toBe("instant");
+    if (followup?.type === "instant") {
+      expect(followup.at).toBe("2026-07-23T10:00:00");
+    }
+  });
+
+  it("moves downstream items backward when a predecessor end moves backward", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-14T18:00:00" },
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-15T09:00:00");
+      expect(build.end).toBe("2026-07-19T18:00:00");
+    }
+  });
+
+  it("moves each downstream item once through converging dependencies", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+    document.items.push(
+      {
+        id: "item-review",
+        type: "duration",
+        title: "レビュー",
+        description: "",
+        laneId: "lane-build",
+        tagIds: ["build"],
+        colorTagId: null,
+        color: null,
+        start: "2026-07-16T09:00:00",
+        end: "2026-07-17T09:00:00",
+      },
+      {
+        id: "item-merge",
+        type: "instant",
+        title: "統合",
+        description: "",
+        laneId: "lane-release",
+        tagIds: ["release"],
+        colorTagId: null,
+        color: null,
+        at: "2026-07-21T10:00:00",
+      },
+    );
+    document.dependencies.push(
+      {
+        id: "dep-design-review",
+        fromId: "item-design",
+        toId: "item-review",
+        type: "finish-to-start",
+        lagSeconds: 54_000,
+      },
+      {
+        id: "dep-build-merge",
+        fromId: "item-build",
+        toId: "item-merge",
+        type: "finish-to-start",
+        lagSeconds: 57_600,
+      },
+      {
+        id: "dep-review-merge",
+        fromId: "item-review",
+        toId: "item-merge",
+        type: "finish-to-start",
+        lagSeconds: 363_600,
+      },
+    );
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-16T18:00:00" },
+    });
+
+    const merge = state.document.items.find((item) => item.id === "item-merge");
+
+    expect(merge?.type).toBe("instant");
+    if (merge?.type === "instant") {
+      expect(merge.at).toBe("2026-07-22T10:00:00");
+    }
+  });
+
   it("rejects dependency additions that would create a cycle", () => {
     const state = timelineReducer(stateFor(), {
       type: "addDependency",

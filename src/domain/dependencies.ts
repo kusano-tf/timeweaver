@@ -62,6 +62,7 @@ export function propagateMove(
 
   const moveQueue = [movedItemId];
   const seen = new Set<string>();
+  const queued = new Set<string>([movedItemId]);
 
   while (moveQueue.length > 0) {
     const fromId = moveQueue.shift();
@@ -77,11 +78,17 @@ export function propagateMove(
         continue;
       }
 
-      changedItems.set(
-        dependency.toId,
-        moveItemBySeconds(current, deltaSeconds),
-      );
-      moveQueue.push(dependency.toId);
+      if (!changedItems.has(dependency.toId)) {
+        changedItems.set(
+          dependency.toId,
+          moveItemBySeconds(current, deltaSeconds),
+        );
+      }
+
+      if (!queued.has(dependency.toId)) {
+        queued.add(dependency.toId);
+        moveQueue.push(dependency.toId);
+      }
     }
   }
 
