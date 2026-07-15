@@ -110,6 +110,7 @@ export function DetailPanel() {
             開始
             <DateTimeInput
               id={`${selected.id}-start`}
+              key={`${selected.id}-start`}
               value={selected.start}
               onChange={(start) => {
                 if (compareDateTime(start, selected.end) < 0) {
@@ -124,6 +125,7 @@ export function DetailPanel() {
             終了
             <DateTimeInput
               id={`${selected.id}-end`}
+              key={`${selected.id}-end`}
               value={selected.end}
               onChange={(end) => {
                 if (compareDateTime(selected.start, end) < 0) {
@@ -140,6 +142,7 @@ export function DetailPanel() {
           日時
           <DateTimeInput
             id={`${selected.id}-at`}
+            key={`${selected.id}-at`}
             value={selected.at}
             onChange={(at) => {
               updateItem({ ...selected, at });
