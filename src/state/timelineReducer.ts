@@ -37,9 +37,11 @@ export type TimelineAction =
   | { type: "addDependency"; dependency: Dependency }
   | { type: "deleteDependency"; dependencyId: string }
   | { type: "addTag"; tag: Tag }
+  | { type: "updateTag"; tagId: string; name?: string; color?: string }
   | { type: "deleteTag"; tagId: string }
   | { type: "reorderTags"; tagIds: string[] }
   | { type: "addLane"; lane: Lane }
+  | { type: "updateLane"; laneId: string; name: string }
   | { type: "deleteLane"; laneId: string }
   | { type: "reorderLanes"; laneIds: string[] }
   | { type: "markExported" };
@@ -236,6 +238,31 @@ export function timelineReducer(
         },
       };
 
+    case "updateTag": {
+      const name = action.name?.trim();
+      const color = action.color?.trim();
+      if (name === "" || color === "") {
+        return state;
+      }
+
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          tags: state.document.tags.map((tag) =>
+            tag.id === action.tagId
+              ? {
+                  ...tag,
+                  ...(name !== undefined ? { name } : {}),
+                  ...(color !== undefined ? { color } : {}),
+                }
+              : tag,
+          ),
+        },
+      };
+    }
+
     case "deleteTag":
       return {
         ...state,
@@ -277,6 +304,24 @@ export function timelineReducer(
           lanes: [...state.document.lanes, action.lane],
         },
       };
+
+    case "updateLane": {
+      const name = action.name.trim();
+      if (!name) {
+        return state;
+      }
+
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          lanes: state.document.lanes.map((lane) =>
+            lane.id === action.laneId ? { ...lane, name } : lane,
+          ),
+        },
+      };
+    }
 
     case "deleteLane":
       if (state.document.items.some((item) => item.laneId === action.laneId)) {

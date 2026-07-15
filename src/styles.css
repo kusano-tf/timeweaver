@@ -235,13 +235,32 @@ label {
 
 .managementRow {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 8px;
   font-size: 13px;
+}
+
+.tagManagementRow {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+}
+
+.laneManagementRow {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.managementRow .colorInput {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 4px;
+}
+
+.managementNameInput {
+  min-width: 0;
+  padding: 6px 8px;
 }
 
 .sortableRow {

@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useEffect, useState } from "react";
 
 import type { Lane, Tag } from "../domain/types";
 import {
@@ -219,18 +220,33 @@ export function TagFilters() {
 
 function SortableTagRow({ tag }: { tag: Tag }) {
   const dispatch = useTimelineDispatch();
+  const [name, setName] = useState(tag.name);
   const sortable = useSortable({ id: tag.id });
   const style = {
     transform: CSS.Transform.toString(sortable.transform),
     transition: sortable.transition,
   };
 
+  useEffect(() => {
+    setName(tag.name);
+  }, [tag.name]);
+
+  function commitName(nextName: string) {
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      setName(tag.name);
+      return;
+    }
+
+    dispatch({ type: "updateTag", tagId: tag.id, name: trimmed });
+  }
+
   return (
     <div
       className={
         sortable.isDragging
-          ? "managementRow sortableRow dragging"
-          : "managementRow sortableRow"
+          ? "managementRow tagManagementRow sortableRow dragging"
+          : "managementRow tagManagementRow sortableRow"
       }
       ref={sortable.setNodeRef}
       style={style}
@@ -244,8 +260,32 @@ function SortableTagRow({ tag }: { tag: Tag }) {
       >
         ⋮⋮
       </button>
-      <span className="tagSwatch" style={{ background: tag.color }} />
-      <span>{tag.name}</span>
+      <input
+        aria-label={`${tag.name} の色`}
+        className="colorInput"
+        type="color"
+        value={tag.color}
+        onChange={(event) =>
+          dispatch({
+            type: "updateTag",
+            tagId: tag.id,
+            color: event.target.value,
+          })
+        }
+      />
+      <input
+        aria-label={`${tag.name} の名前`}
+        className="managementNameInput"
+        value={name}
+        onBlur={(event) => commitName(event.target.value)}
+        onChange={(event) => {
+          setName(event.target.value);
+          const trimmed = event.target.value.trim();
+          if (trimmed) {
+            dispatch({ type: "updateTag", tagId: tag.id, name: trimmed });
+          }
+        }}
+      />
       <button
         type="button"
         className="danger compactButton"
@@ -265,18 +305,33 @@ function SortableLaneRow({
   itemCount: number;
 }) {
   const dispatch = useTimelineDispatch();
+  const [name, setName] = useState(lane.name);
   const sortable = useSortable({ id: lane.id });
   const style = {
     transform: CSS.Transform.toString(sortable.transform),
     transition: sortable.transition,
   };
 
+  useEffect(() => {
+    setName(lane.name);
+  }, [lane.name]);
+
+  function commitName(nextName: string) {
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      setName(lane.name);
+      return;
+    }
+
+    dispatch({ type: "updateLane", laneId: lane.id, name: trimmed });
+  }
+
   return (
     <div
       className={
         sortable.isDragging
-          ? "managementRow sortableRow dragging"
-          : "managementRow sortableRow"
+          ? "managementRow laneManagementRow sortableRow dragging"
+          : "managementRow laneManagementRow sortableRow"
       }
       ref={sortable.setNodeRef}
       style={style}
@@ -290,7 +345,19 @@ function SortableLaneRow({
       >
         ⋮⋮
       </button>
-      <span>{lane.name}</span>
+      <input
+        aria-label={`${lane.name} の名前`}
+        className="managementNameInput"
+        value={name}
+        onBlur={(event) => commitName(event.target.value)}
+        onChange={(event) => {
+          setName(event.target.value);
+          const trimmed = event.target.value.trim();
+          if (trimmed) {
+            dispatch({ type: "updateLane", laneId: lane.id, name: trimmed });
+          }
+        }}
+      />
       <span className="muted">{itemCount}件</span>
       <button
         type="button"

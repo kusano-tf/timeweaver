@@ -168,6 +168,57 @@ describe("tag filtering", () => {
 });
 
 describe("tag and lane management", () => {
+  it("updates tag names and colors", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "updateTag",
+      tagId: "planning",
+      name: "企画",
+      color: "#16a34a",
+    });
+
+    const tag = state.document.tags.find(
+      (candidate) => candidate.id === "planning",
+    );
+
+    expect(tag?.name).toBe("企画");
+    expect(tag?.color).toBe("#16a34a");
+    expect(state.dirty).toBe(true);
+  });
+
+  it("ignores empty tag and lane names", () => {
+    const tagState = timelineReducer(stateFor(), {
+      type: "updateTag",
+      tagId: "planning",
+      name: "   ",
+    });
+    const laneState = timelineReducer(stateFor(), {
+      type: "updateLane",
+      laneId: "lane-planning",
+      name: "",
+    });
+
+    expect(
+      tagState.document.tags.find((tag) => tag.id === "planning")?.name,
+    ).toBe("Planning");
+    expect(
+      laneState.document.lanes.find((lane) => lane.id === "lane-planning")
+        ?.name,
+    ).toBe("計画");
+  });
+
+  it("updates lane names", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "updateLane",
+      laneId: "lane-planning",
+      name: "構想",
+    });
+
+    expect(
+      state.document.lanes.find((lane) => lane.id === "lane-planning")?.name,
+    ).toBe("構想");
+    expect(state.dirty).toBe(true);
+  });
+
   it("removes deleted tags from items and the active filter", () => {
     const state = timelineReducer(
       {
