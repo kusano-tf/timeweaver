@@ -1,4 +1,4 @@
-import { Download, Settings, Upload } from "lucide-react";
+import { Download, ImageDown, Upload } from "lucide-react";
 
 import { parseTimelineDocument } from "../domain/schema";
 import type { TimelineDocument } from "../domain/types";
@@ -7,7 +7,7 @@ import {
   useTimelineState,
 } from "../state/TimelineContext";
 
-export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function Toolbar() {
   const { document, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
 
@@ -87,11 +87,11 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <button
           type="button"
           className="iconButton"
-          aria-label="設定"
-          title="設定"
-          onClick={onOpenSettings}
+          aria-label="PNG出力"
+          title="PNG出力"
+          onClick={() => exportTimelinePng(document.timeline.title)}
         >
-          <Settings aria-hidden="true" size={16} />
+          <ImageDown aria-hidden="true" size={16} />
         </button>
       </div>
     </header>
@@ -106,4 +106,47 @@ function downloadText(filename: string, text: string, type: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function exportTimelinePng(title: string) {
+  const svg = document.querySelector<SVGSVGElement>(
+    "[data-timeline-svg='true']",
+  );
+  if (!svg) {
+    return;
+  }
+
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const serialized = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const image = new Image();
+  image.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = svg.viewBox.baseVal.width || svg.clientWidth;
+    canvas.height = svg.viewBox.baseVal.height || svg.clientHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0);
+    URL.revokeObjectURL(url);
+
+    canvas.toBlob((pngBlob) => {
+      if (!pngBlob) {
+        return;
+      }
+      const pngUrl = URL.createObjectURL(pngBlob);
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = `${title || "timeweaver"}.png`;
+      link.click();
+      URL.revokeObjectURL(pngUrl);
+    }, "image/png");
+  };
+  image.src = url;
 }

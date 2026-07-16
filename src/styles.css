@@ -511,8 +511,15 @@ label {
   margin-bottom: 0;
 }
 
-.summaryPanel .panelSection h1 {
+.summaryTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.summaryPanel .panelSection h1 {
+  margin: 0;
   font-size: 18px;
 }
 

@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { DetailPanel } from "./components/DetailPanel";
@@ -50,11 +50,22 @@ function TimeweaverApp() {
 
   return (
     <div className="app">
-      <Toolbar onOpenSettings={() => setSettingsOpen(true)} />
+      <Toolbar />
       <main className="workspace">
         <section className="summaryPanel">
           <section className="panelSection">
-            <h1>{document.timeline.title}</h1>
+            <div className="summaryTitleRow">
+              <h1>{document.timeline.title}</h1>
+              <button
+                type="button"
+                className="iconButton compactIconButton"
+                aria-label="設定"
+                title="設定"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings aria-hidden="true" size={14} />
+              </button>
+            </div>
             {document.timeline.description ? (
               <p>{document.timeline.description}</p>
             ) : null}

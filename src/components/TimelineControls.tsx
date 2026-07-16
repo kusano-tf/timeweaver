@@ -1,4 +1,4 @@
-import { CalendarPlus, ClockPlus, ImageDown } from "lucide-react";
+import { CalendarPlus, ClockPlus } from "lucide-react";
 
 import type { TimelineItem, TimelineScale } from "../domain/types";
 import {
@@ -73,15 +73,6 @@ export function TimelineControls() {
             {scale.label}
           </button>
         ))}
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="PNG出力"
-          title="PNG出力"
-          onClick={() => exportTimelinePng(document.timeline.title)}
-        >
-          <ImageDown aria-hidden="true" size={16} />
-        </button>
       </div>
       <div className="toolbarGroup timelineEditActions">
         <button
@@ -105,49 +96,6 @@ export function TimelineControls() {
       </div>
     </div>
   );
-}
-
-function exportTimelinePng(title: string) {
-  const svg = document.querySelector<SVGSVGElement>(
-    "[data-timeline-svg='true']",
-  );
-  if (!svg) {
-    return;
-  }
-
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  const serialized = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const image = new Image();
-  image.onload = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = svg.viewBox.baseVal.width || svg.clientWidth;
-    canvas.height = svg.viewBox.baseVal.height || svg.clientHeight;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      URL.revokeObjectURL(url);
-      return;
-    }
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0);
-    URL.revokeObjectURL(url);
-
-    canvas.toBlob((pngBlob) => {
-      if (!pngBlob) {
-        return;
-      }
-      const pngUrl = URL.createObjectURL(pngBlob);
-      const link = document.createElement("a");
-      link.href = pngUrl;
-      link.download = `${title || "timeweaver"}.png`;
-      link.click();
-      URL.revokeObjectURL(pngUrl);
-    }, "image/png");
-  };
-  image.src = url;
 }
 
 function createId(prefix: string) {
