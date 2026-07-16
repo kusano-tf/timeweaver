@@ -131,7 +131,9 @@ export function TagFilters() {
               type="button"
               key={tag.id}
               className={
-                visible.has(tag.id) ? "tagButton selected" : "tagButton"
+                visible.has(tag.id)
+                  ? "tagPill filterTagPill selected"
+                  : "tagPill filterTagPill"
               }
               onClick={() => dispatch({ type: "toggleTag", tagId: tag.id })}
             >

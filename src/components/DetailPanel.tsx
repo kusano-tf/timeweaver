@@ -1,4 +1,4 @@
-import { Copy, Trash2, Unlink } from "lucide-react";
+import { Copy, Plus, Trash2, Unlink, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -165,25 +165,11 @@ export function DetailPanel() {
         updateItem={updateItem}
       />
 
-      <section className="fieldGroup">
-        <h3>タグ</h3>
-        {sortedTags.map((tag) => (
-          <label className="checkboxLabel" key={tag.id}>
-            <input
-              type="checkbox"
-              checked={selected.tagIds.includes(tag.id)}
-              onChange={(event) => {
-                const tagIds = event.target.checked
-                  ? [...selected.tagIds, tag.id]
-                  : selected.tagIds.filter((tagId) => tagId !== tag.id);
-                updateItem({ ...selected, tagIds });
-              }}
-            />
-            <span className="tagSwatch" style={{ background: tag.color }} />
-            {tag.name}
-          </label>
-        ))}
-      </section>
+      <TagPicker
+        selected={selected}
+        sortedTags={sortedTags}
+        updateItem={updateItem}
+      />
 
       <section className="fieldGroup">
         <h3>先行依存</h3>
@@ -197,6 +183,97 @@ export function DetailPanel() {
         )}
       </section>
     </aside>
+  );
+}
+
+function TagPicker({
+  selected,
+  sortedTags,
+  updateItem,
+}: {
+  selected: TimelineItem;
+  sortedTags: Tag[];
+  updateItem: (next: TimelineItem) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const selectedTags = sortedTags.filter((tag) =>
+    selected.tagIds.includes(tag.id),
+  );
+  const candidateTags = sortedTags.filter(
+    (tag) =>
+      !selected.tagIds.includes(tag.id) &&
+      tag.name.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  function addTag(tagId: string) {
+    updateItem({ ...selected, tagIds: [...selected.tagIds, tagId] });
+    setQuery("");
+  }
+
+  function removeTag(tagId: string) {
+    updateItem({
+      ...selected,
+      tagIds: selected.tagIds.filter(
+        (selectedTagId) => selectedTagId !== tagId,
+      ),
+      colorTagId: selected.colorTagId === tagId ? null : selected.colorTagId,
+    });
+  }
+
+  return (
+    <section className="fieldGroup">
+      <h3>タグ</h3>
+      {selectedTags.length > 0 ? (
+        <div className="tagPillList">
+          {selectedTags.map((tag) => (
+            <span className="tagPill removableTagPill" key={tag.id}>
+              <span className="tagSwatch" style={{ background: tag.color }} />
+              <span>{tag.name}</span>
+              <button
+                type="button"
+                className="tagPillRemove"
+                aria-label={`${tag.name} を外す`}
+                title={`${tag.name} を外す`}
+                onClick={() => removeTag(tag.id)}
+              >
+                <X aria-hidden="true" size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="muted compactMuted">タグは未設定です。</p>
+      )}
+
+      <label>
+        タグを追加
+        <input
+          type="search"
+          value={query}
+          placeholder="タグを検索"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+
+      <div className="tagCandidateList">
+        {candidateTags.length > 0 ? (
+          candidateTags.map((tag) => (
+            <button
+              type="button"
+              className="tagPill tagCandidate"
+              key={tag.id}
+              onClick={() => addTag(tag.id)}
+            >
+              <span className="tagSwatch" style={{ background: tag.color }} />
+              <span>{tag.name}</span>
+              <Plus aria-hidden="true" size={12} />
+            </button>
+          ))
+        ) : (
+          <p className="muted compactMuted">追加できるタグはありません。</p>
+        )}
+      </div>
+    </section>
   );
 }
 
