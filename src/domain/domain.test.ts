@@ -99,6 +99,25 @@ describe("datetime input formatting", () => {
 });
 
 describe("dependency behavior", () => {
+  it("updates timeline metadata and keeps empty titles out", () => {
+    const renamed = timelineReducer(stateFor(), {
+      type: "updateTimelineMeta",
+      title: "  新しいタイムライン  ",
+      description: "",
+    });
+
+    expect(renamed.dirty).toBe(true);
+    expect(renamed.document.timeline.title).toBe("新しいタイムライン");
+    expect(renamed.document.timeline.description).toBe("");
+
+    const unchanged = timelineReducer(renamed, {
+      type: "updateTimelineMeta",
+      title: "   ",
+    });
+
+    expect(unchanged).toBe(renamed);
+  });
+
   it("moves downstream items by the same delta", () => {
     const state = timelineReducer(stateFor(), {
       type: "moveItem",

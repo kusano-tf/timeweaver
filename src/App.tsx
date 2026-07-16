@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 
 import { DetailPanel } from "./components/DetailPanel";
 import { ImportIssues } from "./components/ImportIssues";
-import { TagFilters, TagLaneSettings } from "./components/TagFilters";
+import {
+  TagFilters,
+  TagLaneSettings,
+  TimelineMetaSettings,
+} from "./components/TagFilters";
 import { TimelineControls } from "./components/TimelineControls";
 import { TimelineSvg } from "./components/TimelineSvg";
 import { Toolbar } from "./components/Toolbar";
@@ -51,7 +55,9 @@ function TimeweaverApp() {
         <section className="summaryPanel">
           <section className="panelSection">
             <h1>{document.timeline.title}</h1>
-            <p>{document.timeline.description}</p>
+            {document.timeline.description ? (
+              <p>{document.timeline.description}</p>
+            ) : null}
           </section>
           <TagFilters />
           <ImportIssues />
@@ -85,6 +91,7 @@ function TimeweaverApp() {
                 <X aria-hidden="true" size={16} />
               </button>
             </div>
+            <TimelineMetaSettings />
             <TagLaneSettings />
           </aside>
         </div>

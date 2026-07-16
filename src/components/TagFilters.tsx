@@ -242,6 +242,59 @@ export function TagLaneSettings() {
   );
 }
 
+export function TimelineMetaSettings() {
+  const { document } = useTimelineState();
+  const dispatch = useTimelineDispatch();
+  const [title, setTitle] = useState(document.timeline.title);
+
+  useEffect(() => {
+    setTitle(document.timeline.title);
+  }, [document.timeline.title]);
+
+  function commitTitle(nextTitle: string) {
+    const trimmed = nextTitle.trim();
+    if (!trimmed) {
+      setTitle(document.timeline.title);
+      return;
+    }
+
+    dispatch({ type: "updateTimelineMeta", title: trimmed });
+    setTitle(trimmed);
+  }
+
+  return (
+    <section className="panelSection">
+      <h2>タイムライン</h2>
+      <label>
+        タイトル
+        <input
+          value={title}
+          onBlur={(event) => commitTitle(event.target.value)}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            const trimmed = event.target.value.trim();
+            if (trimmed) {
+              dispatch({ type: "updateTimelineMeta", title: trimmed });
+            }
+          }}
+        />
+      </label>
+      <label>
+        説明
+        <textarea
+          value={document.timeline.description ?? ""}
+          onChange={(event) =>
+            dispatch({
+              type: "updateTimelineMeta",
+              description: event.target.value,
+            })
+          }
+        />
+      </label>
+    </section>
+  );
+}
+
 function SortableTagRow({ tag }: { tag: Tag }) {
   const dispatch = useTimelineDispatch();
   const [name, setName] = useState(tag.name);

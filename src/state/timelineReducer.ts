@@ -27,6 +27,7 @@ export type TimelineAction =
   | { type: "replaceDocument"; document: TimelineDocument }
   | { type: "selectItem"; itemId: string | null }
   | { type: "setImportIssues"; issues: ValidationIssue[] }
+  | { type: "updateTimelineMeta"; title?: string; description?: string }
   | { type: "setScale"; scale: TimelineScale }
   | { type: "toggleTag"; tagId: string }
   | { type: "updateItem"; item: TimelineItem }
@@ -64,6 +65,28 @@ export function timelineReducer(
 
     case "setImportIssues":
       return { ...state, importIssues: action.issues };
+
+    case "updateTimelineMeta": {
+      const title = action.title?.trim();
+      if (title === "") {
+        return state;
+      }
+
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          timeline: {
+            ...state.document.timeline,
+            ...(title !== undefined ? { title } : {}),
+            ...(action.description !== undefined
+              ? { description: action.description }
+              : {}),
+          },
+        },
+      };
+    }
 
     case "setScale":
       return {
