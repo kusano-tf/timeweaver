@@ -6,13 +6,7 @@ import {
   differenceInMilliseconds,
   format,
 } from "date-fns";
-import {
-  type PointerEvent,
-  useMemo,
-  useRef,
-  useState,
-  type WheelEvent,
-} from "react";
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseDateTime } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
@@ -88,6 +82,16 @@ export function TimelineSvg() {
   const laneGeometry = createLaneGeometry(sortedLanes, laneRowsById);
   const height = laneGeometry.totalHeight + 32;
 
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) {
+      return;
+    }
+
+    svg.addEventListener("wheel", handleWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", handleWheel);
+  });
+
   function xForDate(date: Date) {
     return (
       leftGutter +
@@ -158,7 +162,7 @@ export function TimelineSvg() {
     setDrag(null);
   }
 
-  function handleWheel(event: WheelEvent<SVGSVGElement>) {
+  function handleWheel(event: WheelEvent) {
     if (!event.ctrlKey && !event.shiftKey) {
       return;
     }
@@ -215,7 +219,6 @@ export function TimelineSvg() {
           }
         }}
         onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
       >
         <rect width={width} height={height} fill="#ffffff" />
         <TimelineTicks
