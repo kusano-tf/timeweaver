@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DetailPanel } from "./components/DetailPanel";
 import { ImportIssues } from "./components/ImportIssues";
 import { TagFilters, TagLaneSettings } from "./components/TagFilters";
+import { TimelineControls } from "./components/TimelineControls";
 import { TimelineSvg } from "./components/TimelineSvg";
 import { Toolbar } from "./components/Toolbar";
 import { TimelineProvider, useTimelineState } from "./state/TimelineContext";
@@ -47,16 +48,21 @@ function TimeweaverApp() {
     <div className="app">
       <Toolbar onOpenSettings={() => setSettingsOpen(true)} />
       <main className="workspace">
-        <aside className="sidePanel">
+        <section className="summaryPanel">
           <section className="panelSection">
             <h1>{document.timeline.title}</h1>
             <p>{document.timeline.description}</p>
           </section>
           <TagFilters />
           <ImportIssues />
-        </aside>
-        <TimelineSvg />
-        <DetailPanel />
+        </section>
+        <div className="timelineWorkspace">
+          <section className="timelineColumn">
+            <TimelineControls />
+            <TimelineSvg />
+          </section>
+          <DetailPanel />
+        </div>
       </main>
       {settingsOpen && (
         <div className="settingsOverlay">

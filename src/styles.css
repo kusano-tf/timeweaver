@@ -118,7 +118,7 @@ label {
   padding: 10px 16px;
 }
 
-.toolbarSettingsGroup {
+.toolbarFileGroup {
   margin-left: auto;
 }
 
@@ -168,9 +168,45 @@ label {
 
 .workspace {
   display: grid;
-  grid-template-columns: 260px minmax(760px, 1fr) 320px;
-  gap: 0;
+  grid-template-rows: auto minmax(0, 1fr);
   height: calc(100vh - 64px);
+}
+
+.summaryPanel {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 8px 16px;
+}
+
+.timelineWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 0;
+}
+
+.timelineColumn {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.timelineControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 10px 14px;
+}
+
+.timelineEditActions {
+  margin-left: auto;
 }
 
 .settingsOverlay {
@@ -217,15 +253,11 @@ label {
   margin: 0;
 }
 
-.sidePanel,
 .detailPanel {
+  min-height: 0;
   overflow: auto;
-  border-right: 1px solid #cbd5e1;
   background: #ffffff;
   padding: 16px;
-}
-
-.detailPanel {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -247,6 +279,12 @@ label {
 
 .panelSection {
   margin-bottom: 22px;
+}
+
+.tagFilterSection {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .panelSection h1,
@@ -469,7 +507,41 @@ label {
   font-size: 12px;
 }
 
+.summaryPanel .panelSection {
+  margin-bottom: 0;
+}
+
+.summaryPanel .panelSection h1 {
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.summaryPanel .panelSection p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.summaryPanel .tagList {
+  gap: 6px;
+}
+
+.summaryPanel .tagPill {
+  font-size: 12px;
+  padding: 6px 9px;
+}
+
+.summaryPanel .tagPill .tagSwatch {
+  width: 9px;
+  height: 9px;
+  flex-basis: 9px;
+}
+
+.summaryPanel .issuePanel {
+  grid-column: 1 / -1;
+}
+
 .timelineShell {
+  min-height: 0;
   overflow: auto;
   background: #e5e7eb;
   padding: 18px;

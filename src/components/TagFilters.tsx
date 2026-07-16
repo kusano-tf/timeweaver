@@ -33,8 +33,7 @@ export function TagFilters() {
   const sortedTags = sortByOrder(document.tags);
 
   return (
-    <section className="panelSection">
-      <h2>タグ</h2>
+    <section className="panelSection tagFilterSection" aria-label="タグ">
       <div className="tagList">
         {sortedTags.map((tag) => (
           <button

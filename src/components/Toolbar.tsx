@@ -1,29 +1,11 @@
-import {
-  CalendarPlus,
-  ClockPlus,
-  Download,
-  ImageDown,
-  Settings,
-  Upload,
-} from "lucide-react";
+import { Download, Settings, Upload } from "lucide-react";
 
 import { parseTimelineDocument } from "../domain/schema";
-import type {
-  TimelineDocument,
-  TimelineItem,
-  TimelineScale,
-} from "../domain/types";
+import type { TimelineDocument } from "../domain/types";
 import {
   useTimelineDispatch,
   useTimelineState,
 } from "../state/TimelineContext";
-
-const scales: { value: TimelineScale; label: string }[] = [
-  { value: "year", label: "年" },
-  { value: "month", label: "月" },
-  { value: "day", label: "日" },
-  { value: "hour", label: "時" },
-];
 
 export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { document, dirty } = useTimelineState();
@@ -65,49 +47,6 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
     dispatch({ type: "markExported" });
   }
 
-  function addDurationItem() {
-    const firstLane = sortByOrder(document.lanes)[0];
-    if (!firstLane) {
-      return;
-    }
-
-    const id = createId("item");
-    const item: TimelineItem = {
-      id,
-      type: "duration",
-      title: "新しい期間",
-      description: "",
-      laneId: firstLane.id,
-      tagIds: [],
-      colorTagId: null,
-      color: null,
-      start: "2026-07-13T09:00:00",
-      end: "2026-07-14T09:00:00",
-    };
-    dispatch({ type: "addItem", item });
-  }
-
-  function addInstantItem() {
-    const firstLane = sortByOrder(document.lanes)[0];
-    if (!firstLane) {
-      return;
-    }
-
-    const id = createId("item");
-    const item: TimelineItem = {
-      id,
-      type: "instant",
-      title: "新しい時点",
-      description: "",
-      laneId: firstLane.id,
-      tagIds: [],
-      colorTagId: null,
-      color: null,
-      at: "2026-07-13T09:00:00",
-    };
-    dispatch({ type: "addItem", item });
-  }
-
   return (
     <header className="toolbar">
       <div className="titleBlock">
@@ -116,7 +55,7 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
           未エクスポート
         </span>
       </div>
-      <div className="toolbarGroup">
+      <div className="toolbarGroup toolbarFileGroup">
         <label
           aria-label="JSON読込"
           className="fileButton iconButton"
@@ -148,49 +87,6 @@ export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <button
           type="button"
           className="iconButton"
-          aria-label="PNG出力"
-          title="PNG出力"
-          onClick={() => exportTimelinePng(document.timeline.title)}
-        >
-          <ImageDown aria-hidden="true" size={16} />
-        </button>
-      </div>
-      <div className="toolbarGroup">
-        {scales.map((scale) => (
-          <button
-            type="button"
-            className={document.view.scale === scale.value ? "active" : ""}
-            key={scale.value}
-            onClick={() => dispatch({ type: "setScale", scale: scale.value })}
-          >
-            {scale.label}
-          </button>
-        ))}
-      </div>
-      <div className="toolbarGroup">
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="期間追加"
-          title="期間追加"
-          onClick={addDurationItem}
-        >
-          <CalendarPlus aria-hidden="true" size={16} />
-        </button>
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="時点追加"
-          title="時点追加"
-          onClick={addInstantItem}
-        >
-          <ClockPlus aria-hidden="true" size={16} />
-        </button>
-      </div>
-      <div className="toolbarGroup toolbarSettingsGroup">
-        <button
-          type="button"
-          className="iconButton"
           aria-label="設定"
           title="設定"
           onClick={onOpenSettings}
@@ -210,58 +106,4 @@ function downloadText(filename: string, text: string, type: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function exportTimelinePng(title: string) {
-  const svg = document.querySelector<SVGSVGElement>(
-    "[data-timeline-svg='true']",
-  );
-  if (!svg) {
-    return;
-  }
-
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  const serialized = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const image = new Image();
-  image.onload = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = svg.viewBox.baseVal.width || svg.clientWidth;
-    canvas.height = svg.viewBox.baseVal.height || svg.clientHeight;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      URL.revokeObjectURL(url);
-      return;
-    }
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0);
-    URL.revokeObjectURL(url);
-
-    canvas.toBlob((pngBlob) => {
-      if (!pngBlob) {
-        return;
-      }
-      const pngUrl = URL.createObjectURL(pngBlob);
-      const link = document.createElement("a");
-      link.href = pngUrl;
-      link.download = `${title || "timeweaver"}.png`;
-      link.click();
-      URL.revokeObjectURL(pngUrl);
-    }, "image/png");
-  };
-  image.src = url;
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}`;
-}
-
-function sortByOrder<T extends { order: number }>(values: T[]): T[] {
-  return values
-    .map((value, index) => ({ value, index }))
-    .sort((a, b) => a.value.order - b.value.order || a.index - b.index)
-    .map(({ value }) => value);
 }
