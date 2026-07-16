@@ -42,6 +42,18 @@ const instantItemSchema = baseItemSchema.extend({
   at: dateTimeSchema,
 });
 
+const visibleRangeSchema = z
+  .object({
+    start: dateTimeSchema,
+    end: dateTimeSchema,
+  })
+  .refine((range) => compareDateTime(range.start, range.end) < 0, {
+    path: ["end"],
+    message: "visibleRange.end は visibleRange.start より後にしてください。",
+  })
+  .nullable()
+  .default(null);
+
 export const timelineDocumentSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   timeline: z.object({
@@ -77,6 +89,7 @@ export const timelineDocumentSchema = z.object({
   ),
   view: z.object({
     scale: z.enum(["year", "month", "day", "hour"]),
+    visibleRange: visibleRangeSchema,
     visibleTagIds: z.array(z.string().min(1)),
     tagFilterMode: z.literal("any"),
     laneMode: z.literal("manual"),

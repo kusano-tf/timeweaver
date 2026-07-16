@@ -5,6 +5,12 @@ import { type TimelineState, timelineReducer } from "../state/timelineReducer";
 import { fromDateTimeLocalMinute, toDateTimeLocalMinute } from "./datetime";
 import { filterItemsByTags } from "./filtering";
 import { parseTimelineDocument } from "./schema";
+import {
+  createTimelineRange,
+  panTimelineRange,
+  resolveVisibleRange,
+  zoomTimelineRange,
+} from "./timelineRange";
 import type { TimelineDocument } from "./types";
 
 function stateFor(document: TimelineDocument = sampleTimeline): TimelineState {
@@ -20,6 +26,37 @@ describe("timeline schema", () => {
   it("accepts the sample document", () => {
     const result = parseTimelineDocument(sampleTimeline);
     expect(result.ok).toBe(true);
+  });
+
+  it("defaults missing visibleRange to all items", () => {
+    const document = structuredClone(sampleTimeline) as {
+      view: Partial<TimelineDocument["view"]>;
+    };
+    delete document.view.visibleRange;
+
+    const result = parseTimelineDocument(document);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.document.view.visibleRange).toBeNull();
+    }
+  });
+
+  it("rejects visibleRange whose end is not after start", () => {
+    const document = structuredClone(sampleTimeline);
+    document.view.visibleRange = {
+      start: "2026-07-14T00:00:00",
+      end: "2026-07-14T00:00:00",
+    };
+
+    const result = parseTimelineDocument(document);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(
+        result.issues.some((issue) => issue.path.includes("visibleRange.end")),
+      ).toBe(true);
+    }
   });
 
   it("rejects invalid datetime values", () => {
@@ -98,6 +135,42 @@ describe("datetime input formatting", () => {
   });
 });
 
+describe("timeline range controls", () => {
+  it("zooms around the center of the visible range", () => {
+    const fullRange = createTimelineRange(sampleTimeline.items, "day");
+    const range = resolveVisibleRange(null, fullRange);
+    const visibleRange = zoomTimelineRange({
+      range,
+      fullRange,
+      factor: 0.5,
+    });
+
+    expect(visibleRange).not.toBeNull();
+    expect(visibleRange?.start).toBe("2026-07-15T06:00:00");
+    expect(visibleRange?.end).toBe("2026-07-19T18:00:00");
+  });
+
+  it("pans the visible range without changing its duration", () => {
+    const fullRange = createTimelineRange(sampleTimeline.items, "day");
+    const range = resolveVisibleRange(
+      {
+        start: "2026-07-15T00:00:00",
+        end: "2026-07-19T12:00:00",
+      },
+      fullRange,
+    );
+    const visibleRange = panTimelineRange({
+      range,
+      fullRange,
+      deltaRatio: 0.1,
+    });
+
+    expect(visibleRange).not.toBeNull();
+    expect(visibleRange?.start).toBe("2026-07-15T10:48:00");
+    expect(visibleRange?.end).toBe("2026-07-19T22:48:00");
+  });
+});
+
 describe("dependency behavior", () => {
   it("updates timeline metadata and keeps empty titles out", () => {
     const renamed = timelineReducer(stateFor(), {
@@ -116,6 +189,20 @@ describe("dependency behavior", () => {
     });
 
     expect(unchanged).toBe(renamed);
+  });
+
+  it("updates the visible timeline range", () => {
+    const visibleRange = {
+      start: "2026-07-13T00:00:00",
+      end: "2026-07-14T00:00:00",
+    };
+    const state = timelineReducer(stateFor(), {
+      type: "setVisibleRange",
+      visibleRange,
+    });
+
+    expect(state.dirty).toBe(true);
+    expect(state.document.view.visibleRange).toEqual(visibleRange);
   });
 
   it("moves downstream items by the same delta", () => {

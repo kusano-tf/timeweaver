@@ -1,5 +1,17 @@
-import { CalendarPlus, ClockPlus } from "lucide-react";
+import {
+  CalendarPlus,
+  ClockPlus,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
+import { filterItemsByTags } from "../domain/filtering";
+import {
+  createTimelineRange,
+  resolveVisibleRange,
+  zoomTimelineRange,
+} from "../domain/timelineRange";
 import type { TimelineItem, TimelineScale } from "../domain/types";
 import {
   useTimelineDispatch,
@@ -16,6 +28,15 @@ const scales: { value: TimelineScale; label: string }[] = [
 export function TimelineControls() {
   const { document } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const tagFilteredItems = filterItemsByTags(
+    document.items,
+    document.view.visibleTagIds,
+  );
+  const fullRange = createTimelineRange(tagFilteredItems, document.view.scale);
+  const visibleRange = resolveVisibleRange(
+    document.view.visibleRange,
+    fullRange,
+  );
 
   function addDurationItem() {
     const firstLane = sortByOrder(document.lanes)[0];
@@ -73,6 +94,53 @@ export function TimelineControls() {
             {scale.label}
           </button>
         ))}
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="ズームアウト"
+          title="ズームアウト"
+          onClick={() =>
+            dispatch({
+              type: "setVisibleRange",
+              visibleRange: zoomTimelineRange({
+                range: visibleRange,
+                fullRange,
+                factor: 2,
+              }),
+            })
+          }
+        >
+          <ZoomOut aria-hidden="true" size={16} />
+        </button>
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="ズームイン"
+          title="ズームイン"
+          onClick={() =>
+            dispatch({
+              type: "setVisibleRange",
+              visibleRange: zoomTimelineRange({
+                range: visibleRange,
+                fullRange,
+                factor: 0.5,
+              }),
+            })
+          }
+        >
+          <ZoomIn aria-hidden="true" size={16} />
+        </button>
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="全体表示"
+          title="全体表示"
+          onClick={() =>
+            dispatch({ type: "setVisibleRange", visibleRange: null })
+          }
+        >
+          <Maximize2 aria-hidden="true" size={16} />
+        </button>
       </div>
       <div className="toolbarGroup timelineEditActions">
         <button

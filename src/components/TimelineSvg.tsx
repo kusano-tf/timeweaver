@@ -5,17 +5,25 @@ import {
   addYears,
   differenceInMilliseconds,
   format,
-  min,
-  startOfDay,
-  startOfHour,
-  startOfMonth,
-  startOfYear,
 } from "date-fns";
-import { type PointerEvent, useMemo, useRef, useState } from "react";
+import {
+  type PointerEvent,
+  useMemo,
+  useRef,
+  useState,
+  type WheelEvent,
+} from "react";
 
 import { parseDateTime } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
+import {
+  createTimelineRange,
+  panTimelineRange,
+  resolveVisibleRange,
+  type TimelineDateRange,
+  zoomTimelineRange,
+} from "../domain/timelineRange";
 import type { Lane, TimelineItem, TimelineScale } from "../domain/types";
 import {
   useTimelineDispatch,
@@ -42,7 +50,7 @@ export function TimelineSvg() {
     laneId: string;
   } | null>(null);
 
-  const visibleItems = useMemo(
+  const tagFilteredItems = useMemo(
     () => filterItemsByTags(document.items, document.view.visibleTagIds),
     [document.items, document.view.visibleTagIds],
   );
@@ -54,16 +62,24 @@ export function TimelineSvg() {
     () => sortByOrder(document.lanes),
     [document.lanes],
   );
+  const fullRange = useMemo(
+    () => createTimelineRange(tagFilteredItems, document.view.scale),
+    [tagFilteredItems, document.view.scale],
+  );
+  const range = useMemo(
+    () => resolveVisibleRange(document.view.visibleRange, fullRange),
+    [document.view.visibleRange, fullRange],
+  );
+  const visibleItems = useMemo(
+    () => filterItemsByRange(tagFilteredItems, range),
+    [tagFilteredItems, range],
+  );
   const itemIds = new Set(visibleItems.map((item) => item.id));
   const visibleDependencies = document.dependencies.filter(
     (dependency) =>
       itemIds.has(dependency.fromId) && itemIds.has(dependency.toId),
   );
 
-  const range = useMemo(
-    () => createRange(visibleItems, document.view.scale),
-    [visibleItems, document.view.scale],
-  );
   const plotWidth = width - leftGutter - 32;
   const totalMs = Math.max(1, range.end.getTime() - range.start.getTime());
   const itemById = new Map(visibleItems.map((item) => [item.id, item]));
@@ -142,6 +158,49 @@ export function TimelineSvg() {
     setDrag(null);
   }
 
+  function handleWheel(event: WheelEvent<SVGSVGElement>) {
+    if (!event.ctrlKey && !event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.ctrlKey) {
+      const anchor = dateForClientX(event.clientX);
+      dispatch({
+        type: "setVisibleRange",
+        visibleRange: zoomTimelineRange({
+          range,
+          fullRange,
+          factor: event.deltaY > 0 ? 2 : 0.5,
+          anchor,
+        }),
+      });
+      return;
+    }
+
+    const delta = event.deltaX !== 0 ? event.deltaX : event.deltaY;
+    dispatch({
+      type: "setVisibleRange",
+      visibleRange: panTimelineRange({
+        range,
+        fullRange,
+        deltaRatio: delta > 0 ? 0.1 : -0.1,
+      }),
+    });
+  }
+
+  function dateForClientX(clientX: number) {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return new Date(range.start.getTime() + totalMs / 2);
+    }
+
+    const svgX = ((clientX - rect.left) / rect.width) * width;
+    const ratio = Math.min(1, Math.max(0, (svgX - leftGutter) / plotWidth));
+    return new Date(range.start.getTime() + totalMs * ratio);
+  }
+
   return (
     <div className="timelineShell">
       <svg
@@ -156,6 +215,7 @@ export function TimelineSvg() {
           }
         }}
         onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
       >
         <rect width={width} height={height} fill="#ffffff" />
         <TimelineTicks
@@ -185,30 +245,15 @@ export function TimelineSvg() {
             </g>
           );
         })}
-        {document.view.itemDisplay.showDependencyLines &&
-          visibleDependencies.map((dependency) => {
-            const from = itemById.get(dependency.fromId);
-            const to = itemById.get(dependency.toId);
-            if (!from || !to) {
-              return null;
-            }
-            const fromX = xForItemEnd(from);
-            const toX = xForItemStart(to);
-            const fromY = yForItem(from) + itemHeight / 2;
-            const toY = yForItem(to) + itemHeight / 2;
-            const midX = fromX + Math.max(24, (toX - fromX) / 2);
-            return (
-              <path
-                key={dependency.id}
-                d={`M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`}
-                fill="none"
-                stroke="#64748b"
-                strokeWidth={2}
-                markerEnd="url(#arrow)"
-              />
-            );
-          })}
         <defs>
+          <clipPath id="timeline-plot-clip">
+            <rect
+              x={leftGutter}
+              y={headerHeight}
+              width={plotWidth}
+              height={Math.max(0, height - headerHeight)}
+            />
+          </clipPath>
           <marker
             id="arrow"
             markerWidth="10"
@@ -221,12 +266,67 @@ export function TimelineSvg() {
             <path d="M 0 0 L 8 3 L 0 6 z" fill="#64748b" />
           </marker>
         </defs>
-        {visibleItems.map((item) => {
-          const y = yForItem(item);
-          const color = getItemColor(item, tagsById);
-          const isSelected = item.id === selectedItemId;
-          if (item.type === "instant") {
+        <g clipPath="url(#timeline-plot-clip)">
+          {document.view.itemDisplay.showDependencyLines &&
+            visibleDependencies.map((dependency) => {
+              const from = itemById.get(dependency.fromId);
+              const to = itemById.get(dependency.toId);
+              if (!from || !to) {
+                return null;
+              }
+              const fromX = xForItemEnd(from);
+              const toX = xForItemStart(to);
+              const fromY = yForItem(from) + itemHeight / 2;
+              const toY = yForItem(to) + itemHeight / 2;
+              const midX = fromX + Math.max(24, (toX - fromX) / 2);
+              return (
+                <path
+                  key={dependency.id}
+                  d={`M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`}
+                  fill="none"
+                  stroke="#64748b"
+                  strokeWidth={2}
+                  markerEnd="url(#arrow)"
+                />
+              );
+            })}
+          {visibleItems.map((item) => {
+            const y = yForItem(item);
+            const color = getItemColor(item, tagsById);
+            const isSelected = item.id === selectedItemId;
+            if (item.type === "instant") {
+              const x = xForItemStart(item);
+              return (
+                <g
+                  key={item.id}
+                  className="timelineItem"
+                  onPointerDown={(event) => {
+                    dispatch({ type: "selectItem", itemId: item.id });
+                    setDrag({
+                      itemId: item.id,
+                      startClientX: event.clientX,
+                      startClientY: event.clientY,
+                      laneId: item.laneId,
+                    });
+                  }}
+                >
+                  <path
+                    d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
+                    fill={color}
+                    stroke={isSelected ? "#0f172a" : "#ffffff"}
+                    strokeWidth={isSelected ? 3 : 2}
+                  />
+                  {document.view.itemDisplay.showLabels && (
+                    <text x={x + 16} y={y + 17} className="itemLabel">
+                      {item.title}
+                    </text>
+                  )}
+                </g>
+              );
+            }
+
             const x = xForItemStart(item);
+            const itemWidth = Math.max(16, xForItemEnd(item) - x);
             return (
               <g
                 key={item.id}
@@ -241,55 +341,25 @@ export function TimelineSvg() {
                   });
                 }}
               >
-                <path
-                  d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
+                <rect
+                  x={x}
+                  y={y}
+                  width={itemWidth}
+                  height={28}
+                  rx={6}
                   fill={color}
                   stroke={isSelected ? "#0f172a" : "#ffffff"}
                   strokeWidth={isSelected ? 3 : 2}
                 />
                 {document.view.itemDisplay.showLabels && (
-                  <text x={x + 16} y={y + 17} className="itemLabel">
+                  <text x={x + 10} y={y + 19} className="itemLabel inBar">
                     {item.title}
                   </text>
                 )}
               </g>
             );
-          }
-
-          const x = xForItemStart(item);
-          const itemWidth = Math.max(16, xForItemEnd(item) - x);
-          return (
-            <g
-              key={item.id}
-              className="timelineItem"
-              onPointerDown={(event) => {
-                dispatch({ type: "selectItem", itemId: item.id });
-                setDrag({
-                  itemId: item.id,
-                  startClientX: event.clientX,
-                  startClientY: event.clientY,
-                  laneId: item.laneId,
-                });
-              }}
-            >
-              <rect
-                x={x}
-                y={y}
-                width={itemWidth}
-                height={28}
-                rx={6}
-                fill={color}
-                stroke={isSelected ? "#0f172a" : "#ffffff"}
-                strokeWidth={isSelected ? 3 : 2}
-              />
-              {document.view.itemDisplay.showLabels && (
-                <text x={x + 10} y={y + 19} className="itemLabel inBar">
-                  {item.title}
-                </text>
-              )}
-            </g>
-          );
-        })}
+          })}
+        </g>
       </svg>
     </div>
   );
@@ -342,29 +412,6 @@ function TimelineTicks({
   );
 }
 
-function createRange(items: TimelineItem[], scale: TimelineScale) {
-  if (items.length === 0) {
-    const start = startOfDay(new Date());
-    return { start, end: addDays(start, 7) };
-  }
-
-  const starts = items.map((item) => parseDateTime(getItemStart(item)));
-  const ends = items.map((item) => parseDateTime(getItemEnd(item)));
-  const start = min(starts);
-  const end = new Date(Math.max(...ends.map((date) => date.getTime())));
-
-  if (scale === "year") {
-    return { start: startOfYear(start), end: addYears(startOfYear(end), 1) };
-  }
-  if (scale === "month") {
-    return { start: startOfMonth(start), end: addMonths(startOfMonth(end), 1) };
-  }
-  if (scale === "day") {
-    return { start: startOfDay(start), end: addDays(startOfDay(end), 1) };
-  }
-  return { start: startOfHour(start), end: addHours(startOfHour(end), 1) };
-}
-
 function createTicks(scale: TimelineScale, start: Date, end: Date) {
   const ticks: Date[] = [];
   let current = start;
@@ -383,6 +430,26 @@ function createTicks(scale: TimelineScale, start: Date, end: Date) {
   }
 
   return ticks;
+}
+
+function filterItemsByRange(
+  items: TimelineItem[],
+  range: TimelineDateRange,
+): TimelineItem[] {
+  return items.filter((item) => itemOverlapsRange(item, range));
+}
+
+function itemOverlapsRange(item: TimelineItem, range: TimelineDateRange) {
+  const start = parseDateTime(getItemStart(item)).getTime();
+  const end = parseDateTime(getItemEnd(item)).getTime();
+  const rangeStart = range.start.getTime();
+  const rangeEnd = range.end.getTime();
+
+  if (item.type === "instant") {
+    return start >= rangeStart && start <= rangeEnd;
+  }
+
+  return start <= rangeEnd && end >= rangeStart;
 }
 
 function formatTick(scale: TimelineScale, date: Date) {

@@ -13,6 +13,7 @@ import type {
   TimelineDocument,
   TimelineItem,
   TimelineScale,
+  TimelineView,
   ValidationIssue,
 } from "../domain/types";
 
@@ -29,6 +30,7 @@ export type TimelineAction =
   | { type: "setImportIssues"; issues: ValidationIssue[] }
   | { type: "updateTimelineMeta"; title?: string; description?: string }
   | { type: "setScale"; scale: TimelineScale }
+  | { type: "setVisibleRange"; visibleRange: TimelineView["visibleRange"] }
   | { type: "toggleTag"; tagId: string }
   | { type: "updateItem"; item: TimelineItem }
   | { type: "moveItem"; itemId: string; deltaSeconds: number; laneId?: string }
@@ -95,6 +97,19 @@ export function timelineReducer(
         document: {
           ...state.document,
           view: { ...state.document.view, scale: action.scale },
+        },
+      };
+
+    case "setVisibleRange":
+      return {
+        ...state,
+        dirty: true,
+        document: {
+          ...state.document,
+          view: {
+            ...state.document.view,
+            visibleRange: action.visibleRange,
+          },
         },
       };
 

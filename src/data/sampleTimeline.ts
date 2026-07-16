@@ -71,6 +71,7 @@ export const sampleTimeline: TimelineDocument = {
   ],
   view: {
     scale: "day",
+    visibleRange: null,
     visibleTagIds: [],
     tagFilterMode: "any",
     laneMode: "manual",

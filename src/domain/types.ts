@@ -56,6 +56,10 @@ export type Dependency = {
 
 export type TimelineView = {
   scale: TimelineScale;
+  visibleRange: {
+    start: DateTimeString;
+    end: DateTimeString;
+  } | null;
   visibleTagIds: string[];
   tagFilterMode: "any";
   laneMode: "manual";
