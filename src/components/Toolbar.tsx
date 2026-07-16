@@ -3,6 +3,7 @@ import {
   ClockPlus,
   Download,
   ImageDown,
+  Settings,
   Upload,
 } from "lucide-react";
 
@@ -24,7 +25,7 @@ const scales: { value: TimelineScale; label: string }[] = [
   { value: "hour", label: "時" },
 ];
 
-export function Toolbar() {
+export function Toolbar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { document, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
 
@@ -184,6 +185,17 @@ export function Toolbar() {
           onClick={addInstantItem}
         >
           <ClockPlus aria-hidden="true" size={16} />
+        </button>
+      </div>
+      <div className="toolbarGroup toolbarSettingsGroup">
+        <button
+          type="button"
+          className="iconButton"
+          aria-label="設定"
+          title="設定"
+          onClick={onOpenSettings}
+        >
+          <Settings aria-hidden="true" size={16} />
         </button>
       </div>
     </header>

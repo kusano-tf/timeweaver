@@ -31,6 +31,35 @@ export function TagFilters() {
   const dispatch = useTimelineDispatch();
   const visible = new Set(document.view.visibleTagIds);
   const sortedTags = sortByOrder(document.tags);
+
+  return (
+    <section className="panelSection">
+      <h2>タグ</h2>
+      <div className="tagList">
+        {sortedTags.map((tag) => (
+          <button
+            type="button"
+            key={tag.id}
+            className={
+              visible.has(tag.id)
+                ? "tagPill filterTagPill selected"
+                : "tagPill filterTagPill"
+            }
+            onClick={() => dispatch({ type: "toggleTag", tagId: tag.id })}
+          >
+            <span className="tagSwatch" style={{ background: tag.color }} />
+            {tag.name}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function TagLaneSettings() {
+  const { document } = useTimelineState();
+  const dispatch = useTimelineDispatch();
+  const sortedTags = sortByOrder(document.tags);
   const sortedLanes = sortByOrder(document.lanes);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -123,27 +152,6 @@ export function TagFilters() {
 
   return (
     <>
-      <section className="panelSection">
-        <h2>タグ</h2>
-        <div className="tagList">
-          {sortedTags.map((tag) => (
-            <button
-              type="button"
-              key={tag.id}
-              className={
-                visible.has(tag.id)
-                  ? "tagPill filterTagPill selected"
-                  : "tagPill filterTagPill"
-              }
-              onClick={() => dispatch({ type: "toggleTag", tagId: tag.id })}
-            >
-              <span className="tagSwatch" style={{ background: tag.color }} />
-              {tag.name}
-            </button>
-          ))}
-        </div>
-      </section>
-
       <section className="panelSection">
         <h2>タグ管理</h2>
         <form
