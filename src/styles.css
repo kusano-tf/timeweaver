@@ -615,6 +615,12 @@ label {
   font-weight: 700;
 }
 
+.boundaryTickLabel {
+  fill: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .timelineItem {
   cursor: grab;
 }

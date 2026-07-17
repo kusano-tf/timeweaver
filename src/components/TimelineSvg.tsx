@@ -5,6 +5,10 @@ import {
   addYears,
   differenceInMilliseconds,
   format,
+  startOfDay,
+  startOfHour,
+  startOfMonth,
+  startOfYear,
 } from "date-fns";
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -384,6 +388,9 @@ function TimelineTicks({
   height: number;
 }) {
   const ticks = createTicks(scale, rangeStart, rangeEnd);
+  const boundaryTicks = createBoundaryTicks(scale, rangeStart, rangeEnd);
+  const labelInterval = createLabelInterval(scale, ticks, xForDate);
+  const boundaryTimes = new Set(boundaryTicks.map((tick) => tick.getTime()));
   return (
     <g>
       <rect
@@ -402,11 +409,39 @@ function TimelineTicks({
       />
       {ticks.map((tick) => {
         const x = xForDate(tick);
+        const isBoundary = boundaryTimes.has(tick.getTime());
         return (
           <g key={tick.toISOString()}>
-            <line x1={x} x2={x} y1={0} y2={height} stroke="#e2e8f0" />
-            <text x={x + 6} y={28} className="tickLabel">
-              {formatTick(scale, tick)}
+            <line
+              x1={x}
+              x2={x}
+              y1={0}
+              y2={height}
+              stroke={isBoundary ? "#cbd5e1" : "#e2e8f0"}
+              strokeWidth={isBoundary ? 1.5 : 1}
+            />
+            {shouldShowTickLabel(scale, tick, labelInterval, isBoundary) && (
+              <text x={x + 6} y={34} className="tickLabel">
+                {formatTick(scale, tick)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      {boundaryTicks.map((tick) => {
+        const x = xForDate(tick);
+        return (
+          <g key={`boundary-${tick.toISOString()}`}>
+            <line
+              x1={x}
+              x2={x}
+              y1={0}
+              y2={height}
+              stroke="#94a3b8"
+              strokeWidth={2}
+            />
+            <text x={x + 6} y={18} className="boundaryTickLabel">
+              {formatBoundaryTick(scale, tick)}
             </text>
           </g>
         );
@@ -417,7 +452,7 @@ function TimelineTicks({
 
 function createTicks(scale: TimelineScale, start: Date, end: Date) {
   const ticks: Date[] = [];
-  let current = start;
+  let current = startOfScale(scale, start);
 
   while (current <= end && ticks.length < 80) {
     ticks.push(current);
@@ -433,6 +468,19 @@ function createTicks(scale: TimelineScale, start: Date, end: Date) {
   }
 
   return ticks;
+}
+
+function startOfScale(scale: TimelineScale, date: Date) {
+  if (scale === "year") {
+    return startOfYear(date);
+  }
+  if (scale === "month") {
+    return startOfMonth(date);
+  }
+  if (scale === "day") {
+    return startOfDay(date);
+  }
+  return startOfHour(date);
 }
 
 function filterItemsByRange(
@@ -455,6 +503,76 @@ function itemOverlapsRange(item: TimelineItem, range: TimelineDateRange) {
   return start <= rangeEnd && end >= rangeStart;
 }
 
+function createBoundaryTicks(scale: TimelineScale, start: Date, end: Date) {
+  if (scale !== "hour" && scale !== "day") {
+    return [];
+  }
+
+  const ticks: Date[] = [];
+  let current = scale === "hour" ? startOfDay(start) : startOfMonth(start);
+  const addNext = scale === "hour" ? addDays : addMonths;
+
+  while (current <= end && ticks.length < 80) {
+    if (current >= start) {
+      ticks.push(current);
+    }
+    current = addNext(current, 1);
+  }
+
+  return ticks;
+}
+
+function createLabelInterval(
+  scale: TimelineScale,
+  ticks: Date[],
+  xForDate: (date: Date) => number,
+) {
+  if (ticks.length < 2) {
+    return 1;
+  }
+
+  const tickSpacing = Math.abs(xForDate(ticks[1]) - xForDate(ticks[0]));
+  if (tickSpacing <= 0) {
+    return 1;
+  }
+
+  if (scale === "hour") {
+    return nearestInterval(Math.ceil(56 / tickSpacing), [1, 3, 6, 12, 24]);
+  }
+  if (scale === "day") {
+    return nearestInterval(Math.ceil(64 / tickSpacing), [1, 2, 7, 14]);
+  }
+  return 1;
+}
+
+function shouldShowTickLabel(
+  scale: TimelineScale,
+  tick: Date,
+  labelInterval: number,
+  isBoundary: boolean,
+) {
+  if (isBoundary) {
+    return false;
+  }
+  if (scale !== "hour" && scale !== "day") {
+    return true;
+  }
+
+  if (scale === "hour") {
+    return tick.getHours() % labelInterval === 0;
+  }
+
+  return (tick.getDate() - 1) % labelInterval === 0;
+}
+
+function nearestInterval(minInterval: number, intervals: number[]) {
+  return (
+    intervals.find((interval) => interval >= minInterval) ??
+    intervals[intervals.length - 1] ??
+    1
+  );
+}
+
 function formatTick(scale: TimelineScale, date: Date) {
   if (scale === "year") {
     return format(date, "yyyy");
@@ -465,7 +583,17 @@ function formatTick(scale: TimelineScale, date: Date) {
   if (scale === "day") {
     return format(date, "MM-dd");
   }
-  return format(date, "HH:mm");
+  return format(date, "HH");
+}
+
+function formatBoundaryTick(scale: TimelineScale, date: Date) {
+  if (scale === "hour") {
+    return format(date, "MM-dd");
+  }
+  if (scale === "day") {
+    return format(date, "yyyy-MM");
+  }
+  return formatTick(scale, date);
 }
 
 type ItemLayout = {
