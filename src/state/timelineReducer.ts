@@ -2,7 +2,7 @@ import { secondsBetween } from "../domain/datetime";
 import {
   detectDependencyCycles,
   propagateMove,
-  recalculateIncomingLagSeconds,
+  recalculateConnectedLagSeconds,
 } from "../domain/dependencies";
 import { getItemEnd, moveItemBySeconds } from "../domain/items";
 import type {
@@ -143,18 +143,18 @@ export function timelineReducer(
           item.id === nextItem.id ? nextItem : item,
         ),
       };
-      const propagatedDocument =
+      const propagation =
         endDeltaSeconds === 0
-          ? updatedDocument
+          ? { document: updatedDocument, changedItemIds: [] }
           : propagateMove(updatedDocument, nextItem.id, endDeltaSeconds);
 
       return {
         ...state,
         dirty: true,
-        document: recalculateIncomingLagSeconds(
-          propagatedDocument,
+        document: recalculateConnectedLagSeconds(propagation.document, [
           nextItem.id,
-        ),
+          ...propagation.changedItemIds,
+        ]),
       };
     }
 
@@ -172,7 +172,7 @@ export function timelineReducer(
         }),
       };
 
-      const propagated = propagateMove(
+      const propagation = propagateMove(
         movedDocument,
         action.itemId,
         action.deltaSeconds,
@@ -181,7 +181,10 @@ export function timelineReducer(
       return {
         ...state,
         dirty: true,
-        document: recalculateIncomingLagSeconds(propagated, action.itemId),
+        document: recalculateConnectedLagSeconds(propagation.document, [
+          action.itemId,
+          ...propagation.changedItemIds,
+        ]),
       };
     }
 

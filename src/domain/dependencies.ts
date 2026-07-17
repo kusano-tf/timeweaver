@@ -1,4 +1,8 @@
-import { compareDateTime, secondsBetween } from "./datetime";
+import {
+  addSecondsToDateTime,
+  compareDateTime,
+  secondsBetween,
+} from "./datetime";
 import { getItemEnd, getItemStart, moveItemBySeconds } from "./items";
 import type { Dependency, TimelineDocument, TimelineItem } from "./types";
 
@@ -48,28 +52,30 @@ export function detectDependencyCycles(dependencies: Dependency[]): string[][] {
 export function propagateMove(
   document: TimelineDocument,
   movedItemId: string,
-  deltaSeconds: number,
-): TimelineDocument {
+  _deltaSeconds: number,
+): { document: TimelineDocument; changedItemIds: string[] } {
   const itemsById = new Map(document.items.map((item) => [item.id, item]));
   const changedItems = new Map<string, TimelineItem>();
   const outgoing = new Map<string, Dependency[]>();
+  const incoming = new Map<string, Dependency[]>();
 
   for (const dependency of document.dependencies) {
     const next = outgoing.get(dependency.fromId) ?? [];
     next.push(dependency);
     outgoing.set(dependency.fromId, next);
+
+    const previous = incoming.get(dependency.toId) ?? [];
+    previous.push(dependency);
+    incoming.set(dependency.toId, previous);
   }
 
   const moveQueue = [movedItemId];
-  const seen = new Set<string>();
-  const queued = new Set<string>([movedItemId]);
 
   while (moveQueue.length > 0) {
     const fromId = moveQueue.shift();
-    if (!fromId || seen.has(fromId)) {
+    if (!fromId) {
       continue;
     }
-    seen.add(fromId);
 
     for (const dependency of outgoing.get(fromId) ?? []) {
       const current =
@@ -78,28 +84,71 @@ export function propagateMove(
         continue;
       }
 
-      if (!changedItems.has(dependency.toId)) {
-        changedItems.set(
-          dependency.toId,
-          moveItemBySeconds(current, deltaSeconds),
-        );
+      const constrainedStart = maxIncomingConstraintStart(
+        dependency.toId,
+        incoming,
+        itemsById,
+        changedItems,
+      );
+      if (
+        !constrainedStart ||
+        compareDateTime(getItemStart(current), constrainedStart) >= 0
+      ) {
+        continue;
       }
 
-      if (!queued.has(dependency.toId)) {
-        queued.add(dependency.toId);
-        moveQueue.push(dependency.toId);
-      }
+      const deltaSeconds = secondsBetween(
+        getItemStart(current),
+        constrainedStart,
+      );
+      changedItems.set(
+        dependency.toId,
+        moveItemBySeconds(current, deltaSeconds),
+      );
+
+      moveQueue.push(dependency.toId);
     }
   }
 
   if (changedItems.size === 0) {
-    return document;
+    return { document, changedItemIds: [] };
   }
 
   return {
-    ...document,
-    items: document.items.map((item) => changedItems.get(item.id) ?? item),
+    document: {
+      ...document,
+      items: document.items.map((item) => changedItems.get(item.id) ?? item),
+    },
+    changedItemIds: [...changedItems.keys()],
   };
+}
+
+function maxIncomingConstraintStart(
+  itemId: string,
+  incoming: Map<string, Dependency[]>,
+  itemsById: Map<string, TimelineItem>,
+  changedItems: Map<string, TimelineItem>,
+) {
+  const dependencies = incoming.get(itemId) ?? [];
+  let constrainedStart: string | null = null;
+
+  for (const dependency of dependencies) {
+    const fromItem =
+      changedItems.get(dependency.fromId) ?? itemsById.get(dependency.fromId);
+    if (!fromItem) {
+      continue;
+    }
+
+    const candidate = addSecondsToDateTime(
+      getItemEnd(fromItem),
+      dependency.lagSeconds,
+    );
+    if (!constrainedStart || compareDateTime(candidate, constrainedStart) > 0) {
+      constrainedStart = candidate;
+    }
+  }
+
+  return constrainedStart;
 }
 
 export function recalculateIncomingLagSeconds(
@@ -131,6 +180,38 @@ export function recalculateIncomingLagSeconds(
           getItemEnd(fromItem),
           getItemStart(movedItem),
         ),
+      };
+    }),
+  };
+}
+
+export function recalculateConnectedLagSeconds(
+  document: TimelineDocument,
+  changedItemIds: string[],
+): TimelineDocument {
+  const changed = new Set(changedItemIds);
+  if (changed.size === 0) {
+    return document;
+  }
+
+  const itemsById = new Map(document.items.map((item) => [item.id, item]));
+
+  return {
+    ...document,
+    dependencies: document.dependencies.map((dependency) => {
+      if (!changed.has(dependency.fromId) && !changed.has(dependency.toId)) {
+        return dependency;
+      }
+
+      const fromItem = itemsById.get(dependency.fromId);
+      const toItem = itemsById.get(dependency.toId);
+      if (!fromItem || !toItem) {
+        return dependency;
+      }
+
+      return {
+        ...dependency,
+        lagSeconds: secondsBetween(getItemEnd(fromItem), getItemStart(toItem)),
       };
     }),
   };

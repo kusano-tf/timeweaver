@@ -339,7 +339,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("moves downstream items backward when a predecessor end moves backward", () => {
+  it("does not move downstream items backward when a predecessor end moves backward", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -355,12 +355,107 @@ describe("dependency behavior", () => {
 
     expect(build?.type).toBe("duration");
     if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-15T09:00:00");
-      expect(build.end).toBe("2026-07-19T18:00:00");
+      expect(build.start).toBe("2026-07-16T09:00:00");
+      expect(build.end).toBe("2026-07-20T18:00:00");
     }
   });
 
-  it("moves each downstream item once through converging dependencies", () => {
+  it("does not move downstream items when another predecessor still constrains them", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+    document.items.push({
+      id: "item-design-b",
+      type: "duration",
+      title: "設計B",
+      description: "",
+      laneId: "lane-planning",
+      tagIds: ["planning"],
+      colorTagId: null,
+      color: null,
+      start: "2026-07-13T09:00:00",
+      end: "2026-07-16T09:00:00",
+    });
+    document.dependencies.push({
+      id: "dep-design-b-build",
+      fromId: "item-design-b",
+      toId: "item-build",
+      type: "finish-to-start",
+      lagSeconds: 86_400,
+    });
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-16T12:00:00" },
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-17T09:00:00");
+      expect(build.end).toBe("2026-07-21T18:00:00");
+    }
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(75_600);
+  });
+
+  it("recalculates all incoming lag when a downstream item is pushed", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+    document.items.push({
+      id: "item-design-b",
+      type: "duration",
+      title: "設計B",
+      description: "",
+      laneId: "lane-planning",
+      tagIds: ["planning"],
+      colorTagId: null,
+      color: null,
+      start: "2026-07-13T09:00:00",
+      end: "2026-07-16T09:00:00",
+    });
+    document.dependencies.push({
+      id: "dep-design-b-build",
+      fromId: "item-design-b",
+      toId: "item-build",
+      type: "finish-to-start",
+      lagSeconds: 86_400,
+    });
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-17T18:00:00" },
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-18T09:00:00");
+      expect(build.end).toBe("2026-07-22T18:00:00");
+    }
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(54_000);
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-b-build",
+      )?.lagSeconds,
+    ).toBe(172_800);
+  });
+
+  it("uses the latest incoming constraint through converging dependencies", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -424,7 +519,7 @@ describe("dependency behavior", () => {
 
     expect(merge?.type).toBe("instant");
     if (merge?.type === "instant") {
-      expect(merge.at).toBe("2026-07-22T10:00:00");
+      expect(merge.at).toBe("2026-07-22T14:00:00");
     }
   });
 
