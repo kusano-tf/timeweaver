@@ -91,6 +91,13 @@ textarea {
   padding: 8px 10px;
 }
 
+input[type="color"] {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  padding: 4px;
+}
+
 textarea {
   min-height: 72px;
   resize: vertical;
@@ -484,9 +491,8 @@ label {
 }
 
 .inlineForm .colorInput {
-  width: 44px;
-  min-width: 44px;
-  padding: 4px;
+  width: 38px;
+  min-width: 38px;
 }
 
 .managementList {
@@ -516,7 +522,6 @@ label {
   width: 34px;
   min-width: 34px;
   height: 34px;
-  padding: 4px;
 }
 
 .managementNameInput {
