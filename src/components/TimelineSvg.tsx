@@ -217,6 +217,7 @@ export function TimelineSvg() {
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="タイムライン"
+        onPointerDown={() => dispatch({ type: "selectItem", itemId: null })}
         onPointerMove={(event) => {
           if (drag) {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -308,6 +309,7 @@ export function TimelineSvg() {
                   key={item.id}
                   className="timelineItem"
                   onPointerDown={(event) => {
+                    event.stopPropagation();
                     dispatch({ type: "selectItem", itemId: item.id });
                     setDrag({
                       itemId: item.id,
@@ -339,6 +341,7 @@ export function TimelineSvg() {
                 key={item.id}
                 className="timelineItem"
                 onPointerDown={(event) => {
+                  event.stopPropagation();
                   dispatch({ type: "selectItem", itemId: item.id });
                   setDrag({
                     itemId: item.id,
