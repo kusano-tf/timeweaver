@@ -1,4 +1,5 @@
-import { Download, ImageDown, Upload } from "lucide-react";
+import { Download, ImageDown, MoreHorizontal, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { parseTimelineDocument } from "../domain/schema";
 import type { TimelineDocument } from "../domain/types";
@@ -8,8 +9,34 @@ import {
 } from "../state/TimelineContext";
 
 export function Toolbar() {
-  const { document, dirty } = useTimelineState();
+  const { document: timelineDocument, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target as Node)
+      ) {
+        setExportMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setExportMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   async function handleImport(file: File) {
     const text = await file.text();
@@ -40,11 +67,21 @@ export function Toolbar() {
 
   function exportJson() {
     downloadText(
-      `${document.timeline.title || "timeweaver"}.json`,
-      JSON.stringify(document satisfies TimelineDocument, null, 2),
+      `${timelineDocument.timeline.title || "timeweaver"}.json`,
+      JSON.stringify(timelineDocument satisfies TimelineDocument, null, 2),
       "application/json",
     );
     dispatch({ type: "markExported" });
+  }
+
+  function handleExportPng() {
+    exportTimelinePng(timelineDocument.timeline.title);
+    setExportMenuOpen(false);
+  }
+
+  function handleExportSvg() {
+    exportTimelineSvg(timelineDocument.timeline.title);
+    setExportMenuOpen(false);
   }
 
   return (
@@ -84,15 +121,31 @@ export function Toolbar() {
         >
           <Download aria-hidden="true" size={16} />
         </button>
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="PNG出力"
-          title="PNG出力"
-          onClick={() => exportTimelinePng(document.timeline.title)}
-        >
-          <ImageDown aria-hidden="true" size={16} />
-        </button>
+        <div className="toolbarMenu" ref={exportMenuRef}>
+          <button
+            type="button"
+            className="iconButton"
+            aria-expanded={exportMenuOpen}
+            aria-haspopup="menu"
+            aria-label="その他の出力"
+            title="その他の出力"
+            onClick={() => setExportMenuOpen((open) => !open)}
+          >
+            <MoreHorizontal aria-hidden="true" size={16} />
+          </button>
+          {exportMenuOpen && (
+            <div className="toolbarMenuPanel" role="menu">
+              <button type="button" role="menuitem" onClick={handleExportPng}>
+                <ImageDown aria-hidden="true" size={16} />
+                PNG出力
+              </button>
+              <button type="button" role="menuitem" onClick={handleExportSvg}>
+                <Download aria-hidden="true" size={16} />
+                SVG出力
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -109,23 +162,20 @@ function downloadText(filename: string, text: string, type: string) {
 }
 
 function exportTimelinePng(title: string) {
-  const svg = document.querySelector<SVGSVGElement>(
-    "[data-timeline-svg='true']",
-  );
-  if (!svg) {
+  const serializedSvg = serializeTimelineSvg();
+  if (!serializedSvg) {
     return;
   }
 
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  const serialized = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+  const blob = new Blob([serializedSvg.svg], {
+    type: "image/svg+xml;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
   const image = new Image();
   image.onload = () => {
     const canvas = document.createElement("canvas");
-    canvas.width = svg.viewBox.baseVal.width || svg.clientWidth;
-    canvas.height = svg.viewBox.baseVal.height || svg.clientHeight;
+    canvas.width = serializedSvg.width;
+    canvas.height = serializedSvg.height;
     const context = canvas.getContext("2d");
     if (!context) {
       URL.revokeObjectURL(url);
@@ -149,4 +199,67 @@ function exportTimelinePng(title: string) {
     }, "image/png");
   };
   image.src = url;
+}
+
+function exportTimelineSvg(title: string) {
+  const serializedSvg = serializeTimelineSvg();
+  if (!serializedSvg) {
+    return;
+  }
+
+  downloadText(
+    `${title || "timeweaver"}.svg`,
+    serializedSvg.svg,
+    "image/svg+xml;charset=utf-8",
+  );
+}
+
+function serializeTimelineSvg() {
+  const svg = document.querySelector<SVGSVGElement>(
+    "[data-timeline-svg='true']",
+  );
+  if (!svg) {
+    return null;
+  }
+
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const width = svg.viewBox.baseVal.width || svg.clientWidth;
+  const height = svg.viewBox.baseVal.height || svg.clientHeight;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
+  clearExportSelectionState(clone);
+  embedTimelineSvgStyles(clone);
+
+  return {
+    svg: new XMLSerializer().serializeToString(clone),
+    width,
+    height,
+  };
+}
+
+function clearExportSelectionState(svg: SVGSVGElement) {
+  svg.querySelectorAll<SVGElement>("[stroke='#0f172a']").forEach((element) => {
+    element.setAttribute("stroke", "#ffffff");
+    element.setAttribute("stroke-width", "2");
+  });
+}
+
+function embedTimelineSvgStyles(svg: SVGSVGElement) {
+  const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  style.textContent = `
+    .laneLabel { fill: #334155; font-size: 14px; font-weight: 700; }
+    .tickLabel { fill: #475569; font-size: 12px; font-weight: 700; }
+    .boundaryTickLabel { fill: #0f172a; font-size: 12px; font-weight: 800; }
+    .itemLabel { fill: #0f172a; font-size: 13px; font-weight: 700; pointer-events: none; }
+    .itemLabel.inBar { fill: #ffffff; }
+  `;
+
+  const defs = svg.querySelector("defs");
+  if (defs) {
+    defs.prepend(style);
+    return;
+  }
+
+  svg.prepend(style);
 }

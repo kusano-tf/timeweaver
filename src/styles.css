@@ -149,6 +149,41 @@ label {
   align-items: center;
 }
 
+.toolbarMenu {
+  position: relative;
+}
+
+.toolbarMenuPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  display: grid;
+  min-width: 144px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.16);
+}
+
+.toolbarMenuPanel button {
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 12px;
+}
+
+.toolbarMenuPanel button + button {
+  border-top: 1px solid #e2e8f0;
+}
+
+.toolbarMenuPanel button:hover {
+  background: #f8fafc;
+}
+
 .segmentedControl {
   display: inline-flex;
   align-items: center;
