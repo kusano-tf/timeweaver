@@ -431,7 +431,9 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
   return (
     <div className="dependencyRow">
       <span>{from?.title ?? dependency.fromId}</span>
-      <code>{dependency.lagSeconds}s</code>
+      <code title={`${dependency.lagSeconds}s`}>
+        {formatLagSeconds(dependency.lagSeconds)}
+      </code>
       <button
         type="button"
         className="iconButton compactIconButton"
@@ -445,6 +447,37 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
       </button>
     </div>
   );
+}
+
+function formatLagSeconds(totalSeconds: number) {
+  if (totalSeconds === 0) {
+    return "0h";
+  }
+
+  const sign = totalSeconds < 0 ? "-" : "";
+  let remaining = Math.abs(totalSeconds);
+  const days = Math.floor(remaining / 86_400);
+  remaining %= 86_400;
+  const hours = Math.floor(remaining / 3_600);
+  remaining %= 3_600;
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const parts: string[] = [];
+
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+  if (hours > 0 || days > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0 && days === 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (seconds > 0 && days === 0 && hours === 0) {
+    parts.push(`${seconds}s`);
+  }
+
+  return `${sign}${parts.join(" ")}`;
 }
 
 function sortByOrder<T extends { order: number }>(values: T[]): T[] {
