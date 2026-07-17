@@ -84,63 +84,73 @@ export function TimelineControls() {
   return (
     <div className="timelineControls">
       <div className="toolbarGroup">
-        {scales.map((scale) => (
+        <fieldset className="segmentedControl">
+          <legend className="srOnly">表示粒度</legend>
+          {scales.map((scale) => (
+            <button
+              type="button"
+              className={
+                document.view.scale === scale.value
+                  ? "segmentedButton active"
+                  : "segmentedButton"
+              }
+              key={scale.value}
+              onClick={() => dispatch({ type: "setScale", scale: scale.value })}
+            >
+              {scale.label}
+            </button>
+          ))}
+        </fieldset>
+        <fieldset className="segmentedControl">
+          <legend className="srOnly">表示範囲</legend>
           <button
             type="button"
-            className={document.view.scale === scale.value ? "active" : ""}
-            key={scale.value}
-            onClick={() => dispatch({ type: "setScale", scale: scale.value })}
+            className="segmentedButton iconButton"
+            aria-label="ズームアウト"
+            title="ズームアウト"
+            onClick={() =>
+              dispatch({
+                type: "setVisibleRange",
+                visibleRange: zoomTimelineRange({
+                  range: visibleRange,
+                  fullRange,
+                  factor: 2,
+                }),
+              })
+            }
           >
-            {scale.label}
+            <ZoomOut aria-hidden="true" size={16} />
           </button>
-        ))}
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="ズームアウト"
-          title="ズームアウト"
-          onClick={() =>
-            dispatch({
-              type: "setVisibleRange",
-              visibleRange: zoomTimelineRange({
-                range: visibleRange,
-                fullRange,
-                factor: 2,
-              }),
-            })
-          }
-        >
-          <ZoomOut aria-hidden="true" size={16} />
-        </button>
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="ズームイン"
-          title="ズームイン"
-          onClick={() =>
-            dispatch({
-              type: "setVisibleRange",
-              visibleRange: zoomTimelineRange({
-                range: visibleRange,
-                fullRange,
-                factor: 0.5,
-              }),
-            })
-          }
-        >
-          <ZoomIn aria-hidden="true" size={16} />
-        </button>
-        <button
-          type="button"
-          className="iconButton"
-          aria-label="全体表示"
-          title="全体表示"
-          onClick={() =>
-            dispatch({ type: "setVisibleRange", visibleRange: null })
-          }
-        >
-          <Maximize2 aria-hidden="true" size={16} />
-        </button>
+          <button
+            type="button"
+            className="segmentedButton iconButton"
+            aria-label="ズームイン"
+            title="ズームイン"
+            onClick={() =>
+              dispatch({
+                type: "setVisibleRange",
+                visibleRange: zoomTimelineRange({
+                  range: visibleRange,
+                  fullRange,
+                  factor: 0.5,
+                }),
+              })
+            }
+          >
+            <ZoomIn aria-hidden="true" size={16} />
+          </button>
+          <button
+            type="button"
+            className="segmentedButton iconButton"
+            aria-label="全体表示"
+            title="全体表示"
+            onClick={() =>
+              dispatch({ type: "setVisibleRange", visibleRange: null })
+            }
+          >
+            <Maximize2 aria-hidden="true" size={16} />
+          </button>
+        </fieldset>
       </div>
       <div className="toolbarGroup timelineEditActions">
         <button

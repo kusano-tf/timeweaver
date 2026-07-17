@@ -149,6 +149,47 @@ label {
   align-items: center;
 }
 
+.segmentedControl {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  margin: 0;
+  padding: 0;
+}
+
+.segmentedButton {
+  min-width: 40px;
+  height: 36px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 12px;
+}
+
+.segmentedButton + .segmentedButton {
+  border-left: 1px solid #cbd5e1;
+}
+
+.segmentedButton.iconButton {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+}
+
+.segmentedButton:hover {
+  background: #f8fafc;
+  border-color: transparent;
+}
+
+.segmentedButton.active,
+.segmentedButton.active:hover {
+  background: #0f172a;
+  color: #ffffff;
+}
+
 .fileButton {
   gap: 0;
   color: #0f172a;
