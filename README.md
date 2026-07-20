@@ -8,8 +8,5 @@ Timeweaver は、タイムライン情報や年表のようなデータを可視
 
 - [仕様書](docs/specification.md)
 - [JSON 形式](docs/json-format.md)
+- [ロードマップ](docs/roadmap.md)
 - [実装ガイド](.agents/implementation-guide.md)
-
-## Notes
-
-`やりたいこと.md` は初期の原案メモです。確定仕様は `docs/` 配下のドキュメントを正とします。

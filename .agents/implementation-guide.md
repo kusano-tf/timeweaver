@@ -30,6 +30,7 @@ src/
 docs/
   specification.md
   json-format.md
+  roadmap.md
 .agents/
   implementation-guide.md
 AGENTS.md
@@ -167,3 +168,5 @@ UI E2E は初期版では後回しでよい。
 - `.agents/implementation-guide.md`
 
 JSON 形式、依存伝播、保存モデル、日時形式、初期版スコープに影響する変更は必ずドキュメントも更新する。
+
+ロードマップ項目を実装する場合は、必要に応じて `docs/roadmap.md` から該当項目を更新し、確定仕様は `docs/specification.md` または `docs/json-format.md` へ反映する。
