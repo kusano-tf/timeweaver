@@ -286,11 +286,10 @@ export function TimelineSvg() {
               const toX = xForItemStart(to);
               const fromY = yForItem(from) + itemHeight / 2;
               const toY = yForItem(to) + itemHeight / 2;
-              const midX = fromX + Math.max(24, (toX - fromX) / 2);
               return (
                 <path
                   key={dependency.id}
-                  d={`M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`}
+                  d={createDependencyPath({ fromX, fromY, toX, toY })}
                   fill="none"
                   stroke="#64748b"
                   strokeWidth={2}
@@ -646,6 +645,39 @@ function visualEndForItem(item: TimelineItem, xStart: number, xEnd: number) {
 function firstAvailableRow(rowEnds: number[], xStart: number) {
   const row = rowEnds.findIndex((rowEnd) => rowEnd <= xStart);
   return row === -1 ? rowEnds.length : row;
+}
+
+function createDependencyPath({
+  fromX,
+  fromY,
+  toX,
+  toY,
+}: {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}) {
+  const minForwardGap = 56;
+  const elbowPadding = 28;
+  const bypassPadding = 44;
+  const rowBypass = 28;
+  const sameRowTolerance = 0.5;
+
+  if (Math.abs(fromY - toY) <= sameRowTolerance && toX >= fromX) {
+    return `M ${fromX} ${fromY} H ${toX}`;
+  }
+
+  if (toX - fromX >= minForwardGap) {
+    const elbowX = fromX + Math.max(elbowPadding, (toX - fromX) / 2);
+    return `M ${fromX} ${fromY} H ${elbowX} V ${toY} H ${toX}`;
+  }
+
+  const escapeX = Math.max(fromX + bypassPadding, toX + bypassPadding);
+  const approachX = toX - elbowPadding;
+  const bypassY = fromY === toY ? fromY - rowBypass : fromY + (toY - fromY) / 2;
+
+  return `M ${fromX} ${fromY} H ${escapeX} V ${bypassY} H ${approachX} V ${toY} H ${toX}`;
 }
 
 function countLaneRows(
