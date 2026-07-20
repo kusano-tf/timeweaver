@@ -7,12 +7,13 @@ ENV PATH="/home/vscode/.local/bin:${PATH}"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release \
+    ripgrep \
+    bat \
+    fd-find \
     && rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /usr/bin/batcat /usr/local/bin/bat \
+    && ln -s /usr/bin/fdfind /usr/local/bin/fd
 
 # # gcloud のインストール
 # RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
