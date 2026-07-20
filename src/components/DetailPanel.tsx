@@ -1,4 +1,12 @@
-import { Copy, Pencil, Plus, Trash2, Unlink, X } from "lucide-react";
+import {
+  Copy,
+  PanelRightClose,
+  Pencil,
+  Plus,
+  Trash2,
+  Unlink,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -20,7 +28,7 @@ import {
   useTimelineState,
 } from "../state/TimelineContext";
 
-export function DetailPanel() {
+export function DetailPanel({ onClose }: { onClose: () => void }) {
   const { document, selectedItemId } = useTimelineState();
   const dispatch = useTimelineDispatch();
   const selected =
@@ -32,7 +40,18 @@ export function DetailPanel() {
   if (!selected) {
     return (
       <aside className="detailPanel">
-        <h2>詳細</h2>
+        <div className="detailHeader">
+          <h2>詳細</h2>
+          <button
+            type="button"
+            className="iconButton"
+            aria-label="詳細を隠す"
+            title="詳細を隠す"
+            onClick={onClose}
+          >
+            <PanelRightClose aria-hidden="true" size={16} />
+          </button>
+        </div>
         <p className="muted">アイテムを選択してください。</p>
       </aside>
     );
@@ -51,6 +70,15 @@ export function DetailPanel() {
       <div className="detailHeader">
         <h2>詳細</h2>
         <div className="detailActions">
+          <button
+            type="button"
+            className="iconButton"
+            aria-label="詳細を隠す"
+            title="詳細を隠す"
+            onClick={onClose}
+          >
+            <PanelRightClose aria-hidden="true" size={16} />
+          </button>
           <button
             type="button"
             className="iconButton"

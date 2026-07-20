@@ -31,7 +31,7 @@ import {
 const minLaneHeight = 72;
 const headerHeight = 56;
 const leftGutter = 140;
-const width = 1180;
+const minTimelineWidth = 1180;
 const itemTopOffset = 20;
 const itemRowStep = 40;
 const itemHeight = 28;
@@ -40,7 +40,9 @@ const itemGap = 8;
 export function TimelineSvg() {
   const { document, selectedItemId, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [timelineWidth, setTimelineWidth] = useState(minTimelineWidth);
   const [drag, setDrag] = useState<{
     itemId: string;
     startClientX: number;
@@ -78,6 +80,7 @@ export function TimelineSvg() {
       itemIds.has(dependency.fromId) && itemIds.has(dependency.toId),
   );
 
+  const width = timelineWidth;
   const plotWidth = width - leftGutter - 32;
   const totalMs = Math.max(1, range.end.getTime() - range.start.getTime());
   const itemById = new Map(visibleItems.map((item) => [item.id, item]));
@@ -95,6 +98,25 @@ export function TimelineSvg() {
     svg.addEventListener("wheel", handleWheel, { passive: false });
     return () => svg.removeEventListener("wheel", handleWheel);
   });
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) {
+        return;
+      }
+      setTimelineWidth(
+        Math.max(minTimelineWidth, Math.floor(entry.contentRect.width)),
+      );
+    });
+
+    resizeObserver.observe(shell);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   function xForDate(date: Date) {
     return (
@@ -210,10 +232,12 @@ export function TimelineSvg() {
   }
 
   return (
-    <div className="timelineShell">
+    <div className="timelineShell" ref={shellRef}>
       <svg
         ref={svgRef}
         data-timeline-svg="true"
+        width={width}
+        height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="タイムライン"

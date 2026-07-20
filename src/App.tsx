@@ -1,4 +1,4 @@
-import { Settings, X } from "lucide-react";
+import { PanelRightOpen, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { DependencyView } from "./components/DependencyView";
@@ -25,6 +25,7 @@ export function App() {
 function TimeweaverApp() {
   const { document, dirty } = useTimelineState();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(true);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -74,13 +75,29 @@ function TimeweaverApp() {
           <TagFilters />
           <ImportIssues />
         </section>
-        <div className="timelineWorkspace">
+        <div
+          className={`timelineWorkspace${detailOpen ? "" : " detailCollapsed"}`}
+        >
           <section className="timelineColumn">
             <TimelineControls />
             <TimelineSvg />
             <DependencyView />
           </section>
-          <DetailPanel />
+          {detailOpen ? (
+            <DetailPanel onClose={() => setDetailOpen(false)} />
+          ) : (
+            <aside className="detailRail" aria-label="詳細パネル">
+              <button
+                type="button"
+                className="iconButton"
+                aria-label="詳細を表示"
+                title="詳細を表示"
+                onClick={() => setDetailOpen(true)}
+              >
+                <PanelRightOpen aria-hidden="true" size={14} />
+              </button>
+            </aside>
+          )}
         </div>
       </main>
       {settingsOpen && (
