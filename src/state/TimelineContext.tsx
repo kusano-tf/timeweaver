@@ -24,6 +24,7 @@ export function TimelineProvider({ children }: { children: ReactNode }) {
     () => ({
       document: sampleTimeline,
       selectedItemId: sampleTimeline.items[0]?.id ?? null,
+      selectedDependencyId: null,
       importIssues: [],
       dirty: false,
     }),

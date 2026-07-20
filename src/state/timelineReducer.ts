@@ -20,6 +20,7 @@ import type {
 export type TimelineState = {
   document: TimelineDocument;
   selectedItemId: string | null;
+  selectedDependencyId: string | null;
   importIssues: ValidationIssue[];
   dirty: boolean;
 };
@@ -27,6 +28,7 @@ export type TimelineState = {
 export type TimelineAction =
   | { type: "replaceDocument"; document: TimelineDocument }
   | { type: "selectItem"; itemId: string | null }
+  | { type: "selectDependency"; dependencyId: string }
   | { type: "setImportIssues"; issues: ValidationIssue[] }
   | { type: "updateTimelineMeta"; title?: string; description?: string }
   | { type: "setScale"; scale: TimelineScale }
@@ -59,12 +61,32 @@ export function timelineReducer(
       return {
         document: action.document,
         selectedItemId: action.document.items[0]?.id ?? null,
+        selectedDependencyId: null,
         importIssues: [],
         dirty: false,
       };
 
     case "selectItem":
-      return { ...state, selectedItemId: action.itemId };
+      return {
+        ...state,
+        selectedItemId: action.itemId,
+        selectedDependencyId: null,
+      };
+
+    case "selectDependency": {
+      const dependency = state.document.dependencies.find(
+        (candidate) => candidate.id === action.dependencyId,
+      );
+      if (!dependency) {
+        return state;
+      }
+
+      return {
+        ...state,
+        selectedItemId: dependency.toId,
+        selectedDependencyId: dependency.id,
+      };
+    }
 
     case "setImportIssues":
       return { ...state, importIssues: action.issues };
@@ -193,6 +215,7 @@ export function timelineReducer(
       return {
         ...state,
         selectedItemId: action.item.id,
+        selectedDependencyId: null,
         dirty: true,
         document: {
           ...state.document,
@@ -216,6 +239,7 @@ export function timelineReducer(
       return {
         ...state,
         selectedItemId: copiedItem.id,
+        selectedDependencyId: null,
         dirty: true,
         document: {
           ...state.document,
@@ -229,6 +253,14 @@ export function timelineReducer(
         ...state,
         selectedItemId:
           state.selectedItemId === action.itemId ? null : state.selectedItemId,
+        selectedDependencyId: state.document.dependencies.some(
+          (dependency) =>
+            dependency.id === state.selectedDependencyId &&
+            (dependency.fromId === action.itemId ||
+              dependency.toId === action.itemId),
+        )
+          ? null
+          : state.selectedDependencyId,
         dirty: true,
         document: {
           ...state.document,
@@ -324,6 +356,10 @@ export function timelineReducer(
     case "deleteDependency":
       return {
         ...state,
+        selectedDependencyId:
+          state.selectedDependencyId === action.dependencyId
+            ? null
+            : state.selectedDependencyId,
         dirty: true,
         document: {
           ...state.document,

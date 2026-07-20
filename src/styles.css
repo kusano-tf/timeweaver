@@ -273,7 +273,7 @@ label {
 
 .timelineColumn {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
 }
@@ -669,6 +669,11 @@ label {
   cursor: grabbing;
 }
 
+.dependencyLine {
+  cursor: pointer;
+  pointer-events: visibleStroke;
+}
+
 .itemLabel {
   fill: #0f172a;
   font-size: 13px;
@@ -708,6 +713,95 @@ label {
   border-radius: 6px;
   padding: 8px;
   font-size: 13px;
+}
+
+.dependencyRow.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.dependencyRowSelect {
+  justify-content: flex-start;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: left;
+}
+
+.dependencyRowSelect.selected {
+  color: #1d4ed8;
+}
+
+.dependencyView {
+  border-top: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.dependencyViewToggle {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: #f8fafc;
+  padding: 9px 14px;
+  font-weight: 800;
+}
+
+.dependencyCount {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dependencyTableWrap {
+  max-height: 220px;
+  overflow: auto;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dependencyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dependencyTable th,
+.dependencyTable td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dependencyTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dependencyTable tbody tr {
+  cursor: pointer;
+}
+
+.dependencyTable tbody tr:hover {
+  background: #f8fafc;
+}
+
+.dependencyTable tbody tr.selectedDependencyRow {
+  background: #dbeafe;
+}
+
+.emptyDependencyCell {
+  color: #64748b;
+  text-align: center;
 }
 
 .modalBackdrop {

@@ -17,6 +17,7 @@ function stateFor(document: TimelineDocument = sampleTimeline): TimelineState {
   return {
     document,
     selectedItemId: document.items[0]?.id ?? null,
+    selectedDependencyId: null,
     importIssues: [],
     dirty: false,
   };
@@ -203,6 +204,31 @@ describe("dependency behavior", () => {
 
     expect(state.dirty).toBe(true);
     expect(state.document.view.visibleRange).toEqual(visibleRange);
+  });
+
+  it("selects a dependency and its dependent item", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "selectDependency",
+      dependencyId: "dep-build-release",
+    });
+
+    expect(state.selectedDependencyId).toBe("dep-build-release");
+    expect(state.selectedItemId).toBe("item-release");
+  });
+
+  it("clears dependency selection when selecting an item", () => {
+    const selected = timelineReducer(stateFor(), {
+      type: "selectDependency",
+      dependencyId: "dep-build-release",
+    });
+
+    const state = timelineReducer(selected, {
+      type: "selectItem",
+      itemId: "item-design",
+    });
+
+    expect(state.selectedDependencyId).toBeNull();
+    expect(state.selectedItemId).toBe("item-design");
   });
 
   it("moves downstream items by the same delta", () => {

@@ -1,6 +1,7 @@
 import { Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { DependencyView } from "./components/DependencyView";
 import { DetailPanel } from "./components/DetailPanel";
 import { ImportIssues } from "./components/ImportIssues";
 import {
@@ -77,6 +78,7 @@ function TimeweaverApp() {
           <section className="timelineColumn">
             <TimelineControls />
             <TimelineSvg />
+            <DependencyView />
           </section>
           <DetailPanel />
         </div>

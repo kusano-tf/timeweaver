@@ -38,7 +38,7 @@ const itemHeight = 28;
 const itemGap = 8;
 
 export function TimelineSvg() {
-  const { document, selectedItemId } = useTimelineState();
+  const { document, selectedItemId, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [drag, setDrag] = useState<{
@@ -273,6 +273,17 @@ export function TimelineSvg() {
           >
             <path d="M 0 0 L 8 3 L 0 6 z" fill="#64748b" />
           </marker>
+          <marker
+            id="selected-arrow"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 0 L 8 3 L 0 6 z" fill="#0f172a" />
+          </marker>
         </defs>
         <g clipPath="url(#timeline-plot-clip)">
           {document.view.itemDisplay.showDependencyLines &&
@@ -286,14 +297,25 @@ export function TimelineSvg() {
               const toX = xForItemStart(to);
               const fromY = yForItem(from) + itemHeight / 2;
               const toY = yForItem(to) + itemHeight / 2;
+              const isSelected = dependency.id === selectedDependencyId;
               return (
                 <path
                   key={dependency.id}
                   d={createDependencyPath({ fromX, fromY, toX, toY })}
                   fill="none"
-                  stroke="#64748b"
-                  strokeWidth={2}
-                  markerEnd="url(#arrow)"
+                  stroke={isSelected ? "#0f172a" : "#64748b"}
+                  strokeWidth={isSelected ? 3 : 2}
+                  className="dependencyLine"
+                  markerEnd={
+                    isSelected ? "url(#selected-arrow)" : "url(#arrow)"
+                  }
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    dispatch({
+                      type: "selectDependency",
+                      dependencyId: dependency.id,
+                    });
+                  }}
                 />
               );
             })}

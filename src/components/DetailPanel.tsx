@@ -424,11 +424,12 @@ function AddDependencyForm({ selected }: { selected: TimelineItem }) {
 }
 
 function DependencyRow({ dependency }: { dependency: Dependency }) {
-  const { document } = useTimelineState();
+  const { document, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
   const [draft, setDraft] = useState<LagDraft | null>(null);
   const from = document.items.find((item) => item.id === dependency.fromId);
   const to = document.items.find((item) => item.id === dependency.toId);
+  const selected = dependency.id === selectedDependencyId;
 
   function updateDraft(field: keyof Omit<LagDraft, "sign">, value: string) {
     const parsed = Number.parseInt(value, 10);
@@ -444,8 +445,19 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
 
   return (
     <>
-      <div className="dependencyRow">
-        <span>{from?.title ?? dependency.fromId}</span>
+      <div className={`dependencyRow${selected ? " selected" : ""}`}>
+        <button
+          type="button"
+          className={`dependencyRowSelect${selected ? " selected" : ""}`}
+          onClick={() =>
+            dispatch({
+              type: "selectDependency",
+              dependencyId: dependency.id,
+            })
+          }
+        >
+          {from?.title ?? dependency.fromId}
+        </button>
         <code title={`${dependency.lagSeconds}s`}>
           {formatLagSeconds(dependency.lagSeconds)}
         </code>
