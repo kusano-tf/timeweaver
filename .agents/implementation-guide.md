@@ -32,6 +32,7 @@ docs/
   json-format.md
 .agents/
   implementation-guide.md
+AGENTS.md
 ```
 
 ## ドメインロジック
@@ -67,13 +68,15 @@ Reducer はタイムラインドキュメントへの変更を扱う。
 
 Undo / Redo は初期版の必須機能ではない。
 
+## Git 運用
+
+コミットメッセージは日本語で書く。
+
 ## UI
 
 画面表示文言は日本語にする。
 
 コード、API、JSON キーは英語にする。
-
-Git のコミットメッセージは日本語で書く。
 
 タイムライン本体は SVG 中心で描画する。フォーム、ツールバー、詳細パネルなどは通常の React DOM で実装する。
 
