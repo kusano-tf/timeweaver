@@ -328,6 +328,7 @@ export function TimelineSvg() {
                   d={createDependencyPath({ fromX, fromY, toX, toY })}
                   fill="none"
                   stroke={isSelected ? "#0f172a" : "#64748b"}
+                  opacity={isSelected ? 1 : 0.55}
                   strokeWidth={isSelected ? 3 : 2}
                   className="dependencyLine"
                   markerEnd={

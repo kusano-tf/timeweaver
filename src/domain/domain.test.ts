@@ -147,8 +147,8 @@ describe("timeline range controls", () => {
     });
 
     expect(visibleRange).not.toBeNull();
-    expect(visibleRange?.start).toBe("2026-07-15T06:00:00");
-    expect(visibleRange?.end).toBe("2026-07-19T18:00:00");
+    expect(visibleRange?.start).toBe("2026-07-15T12:00:00");
+    expect(visibleRange?.end).toBe("2026-07-20T12:00:00");
   });
 
   it("pans the visible range without changing its duration", () => {
@@ -209,17 +209,17 @@ describe("dependency behavior", () => {
   it("selects a dependency and its dependent item", () => {
     const state = timelineReducer(stateFor(), {
       type: "selectDependency",
-      dependencyId: "dep-build-release",
+      dependencyId: "dep-qa-release",
     });
 
-    expect(state.selectedDependencyId).toBe("dep-build-release");
+    expect(state.selectedDependencyId).toBe("dep-qa-release");
     expect(state.selectedItemId).toBe("item-release");
   });
 
   it("clears dependency selection when selecting an item", () => {
     const selected = timelineReducer(stateFor(), {
       type: "selectDependency",
-      dependencyId: "dep-build-release",
+      dependencyId: "dep-qa-release",
     });
 
     const state = timelineReducer(selected, {
@@ -251,7 +251,7 @@ describe("dependency behavior", () => {
 
     expect(release?.type).toBe("instant");
     if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-22T10:00:00");
+      expect(release.at).toBe("2026-07-23T09:00:00");
     }
   });
 
@@ -289,7 +289,7 @@ describe("dependency behavior", () => {
 
     expect(release?.type).toBe("instant");
     if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-22T19:00:00");
+      expect(release.at).toBe("2026-07-22T18:00:00");
     }
     expect(
       state.document.dependencies.find(
@@ -298,9 +298,9 @@ describe("dependency behavior", () => {
     ).toBe(172_800);
     expect(
       state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-build-release",
+        (dependency) => dependency.id === "dep-build-qa",
       )?.lagSeconds,
-    ).toBe(57_600);
+    ).toBe(-151_200);
   });
 
   it("allows edited dependency lag to move the dependent item backward", () => {
@@ -323,7 +323,7 @@ describe("dependency behavior", () => {
 
     expect(release?.type).toBe("instant");
     if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-21T10:00:00");
+      expect(release.at).toBe("2026-07-22T09:00:00");
     }
     expect(
       state.document.dependencies.find(
@@ -332,9 +332,9 @@ describe("dependency behavior", () => {
     ).toBe(0);
     expect(
       state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-build-release",
+        (dependency) => dependency.id === "dep-build-qa",
       )?.lagSeconds,
-    ).toBe(111_600);
+    ).toBe(-10_800);
   });
 
   it("prioritizes the edited dependency lag over other incoming dependencies", () => {
@@ -409,7 +409,7 @@ describe("dependency behavior", () => {
 
     expect(release?.type).toBe("instant");
     if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-22T10:00:00");
+      expect(release.at).toBe("2026-07-23T09:00:00");
     }
 
     expect(
@@ -676,7 +676,9 @@ describe("dependency behavior", () => {
       },
     });
 
-    expect(state.document.dependencies).toHaveLength(2);
+    expect(state.document.dependencies).toHaveLength(
+      sampleTimeline.dependencies.length,
+    );
     expect(state.importIssues[0]?.message).toContain("循環");
   });
 });
@@ -689,6 +691,7 @@ describe("tag filtering", () => {
     ]);
     expect(filtered.map((item) => item.id)).toEqual([
       "item-design",
+      "item-qa",
       "item-release",
     ]);
   });
