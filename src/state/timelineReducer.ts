@@ -1,10 +1,10 @@
-import { secondsBetween } from "../domain/datetime";
+import { addSecondsToDateTime, secondsBetween } from "../domain/datetime";
 import {
   detectDependencyCycles,
   propagateMove,
   recalculateConnectedLagSeconds,
 } from "../domain/dependencies";
-import { getItemEnd, moveItemBySeconds } from "../domain/items";
+import { getItemEnd, getItemStart, moveItemBySeconds } from "../domain/items";
 import type {
   DateTimeString,
   Dependency,
@@ -38,6 +38,7 @@ export type TimelineAction =
   | { type: "copyItem"; itemId: string }
   | { type: "deleteItem"; itemId: string }
   | { type: "addDependency"; dependency: Dependency }
+  | { type: "updateDependencyLag"; dependencyId: string; lagSeconds: number }
   | { type: "deleteDependency"; dependencyId: string }
   | { type: "addTag"; tag: Tag }
   | { type: "updateTag"; tagId: string; name?: string; color?: string }
@@ -269,6 +270,56 @@ export function timelineReducer(
           dependencies: [...state.document.dependencies, action.dependency],
         },
       };
+
+    case "updateDependencyLag": {
+      const dependency = state.document.dependencies.find(
+        (candidate) => candidate.id === action.dependencyId,
+      );
+      if (!dependency) {
+        return state;
+      }
+
+      const fromItem = state.document.items.find(
+        (item) => item.id === dependency.fromId,
+      );
+      const toItem = state.document.items.find(
+        (item) => item.id === dependency.toId,
+      );
+      if (!fromItem || !toItem) {
+        return state;
+      }
+
+      const targetStart = addSecondsToDateTime(
+        getItemEnd(fromItem),
+        action.lagSeconds,
+      );
+      const deltaSeconds = secondsBetween(getItemStart(toItem), targetStart);
+      const updatedDocument = {
+        ...state.document,
+        items: state.document.items.map((item) =>
+          item.id === toItem.id ? moveItemBySeconds(item, deltaSeconds) : item,
+        ),
+        dependencies: state.document.dependencies.map((candidate) =>
+          candidate.id === action.dependencyId
+            ? { ...candidate, lagSeconds: action.lagSeconds }
+            : candidate,
+        ),
+      };
+      const propagation = propagateMove(
+        updatedDocument,
+        toItem.id,
+        deltaSeconds,
+      );
+
+      return {
+        ...state,
+        dirty: true,
+        document: recalculateConnectedLagSeconds(propagation.document, [
+          toItem.id,
+          ...propagation.changedItemIds,
+        ]),
+      };
+    }
 
     case "deleteDependency":
       return {

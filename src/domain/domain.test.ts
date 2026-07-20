@@ -243,6 +243,121 @@ describe("dependency behavior", () => {
     expect(dependency?.lagSeconds).toBe(140_400);
   });
 
+  it("moves the dependent item to match an edited dependency lag", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "updateDependencyLag",
+      dependencyId: "dep-design-build",
+      lagSeconds: 172_800,
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+    const release = state.document.items.find(
+      (item) => item.id === "item-release",
+    );
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-17T18:00:00");
+      expect(build.end).toBe("2026-07-22T03:00:00");
+    }
+
+    expect(release?.type).toBe("instant");
+    if (release?.type === "instant") {
+      expect(release.at).toBe("2026-07-22T19:00:00");
+    }
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(172_800);
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-build-release",
+      )?.lagSeconds,
+    ).toBe(57_600);
+  });
+
+  it("allows edited dependency lag to move the dependent item backward", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "updateDependencyLag",
+      dependencyId: "dep-design-build",
+      lagSeconds: 0,
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+    const release = state.document.items.find(
+      (item) => item.id === "item-release",
+    );
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-15T18:00:00");
+      expect(build.end).toBe("2026-07-20T03:00:00");
+    }
+
+    expect(release?.type).toBe("instant");
+    if (release?.type === "instant") {
+      expect(release.at).toBe("2026-07-21T10:00:00");
+    }
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(0);
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-build-release",
+      )?.lagSeconds,
+    ).toBe(111_600);
+  });
+
+  it("prioritizes the edited dependency lag over other incoming dependencies", () => {
+    const document = structuredClone(sampleTimeline);
+    document.items.push({
+      id: "item-design-b",
+      type: "duration",
+      title: "設計B",
+      description: "",
+      laneId: "lane-planning",
+      tagIds: ["planning"],
+      colorTagId: null,
+      color: null,
+      start: "2026-07-13T09:00:00",
+      end: "2026-07-16T09:00:00",
+    });
+    document.dependencies.push({
+      id: "dep-design-b-build",
+      fromId: "item-design-b",
+      toId: "item-build",
+      type: "finish-to-start",
+      lagSeconds: 0,
+    });
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateDependencyLag",
+      dependencyId: "dep-design-build",
+      lagSeconds: -86_400,
+    });
+
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-14T18:00:00");
+      expect(build.end).toBe("2026-07-19T03:00:00");
+    }
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-build",
+      )?.lagSeconds,
+    ).toBe(-86_400);
+    expect(
+      state.document.dependencies.find(
+        (dependency) => dependency.id === "dep-design-b-build",
+      )?.lagSeconds,
+    ).toBe(-140_400);
+  });
+
   it("moves downstream items when a predecessor end changes", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");

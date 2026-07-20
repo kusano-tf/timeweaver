@@ -1,4 +1,4 @@
-import { Copy, Plus, Trash2, Unlink, X } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2, Unlink, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -426,27 +426,166 @@ function AddDependencyForm({ selected }: { selected: TimelineItem }) {
 function DependencyRow({ dependency }: { dependency: Dependency }) {
   const { document } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const [draft, setDraft] = useState<LagDraft | null>(null);
   const from = document.items.find((item) => item.id === dependency.fromId);
+  const to = document.items.find((item) => item.id === dependency.toId);
+
+  function updateDraft(field: keyof Omit<LagDraft, "sign">, value: string) {
+    const parsed = Number.parseInt(value, 10);
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            [field]: Number.isFinite(parsed) ? Math.max(0, parsed) : 0,
+          }
+        : current,
+    );
+  }
 
   return (
-    <div className="dependencyRow">
-      <span>{from?.title ?? dependency.fromId}</span>
-      <code title={`${dependency.lagSeconds}s`}>
-        {formatLagSeconds(dependency.lagSeconds)}
-      </code>
-      <button
-        type="button"
-        className="iconButton compactIconButton"
-        aria-label="依存関係を外す"
-        title="依存関係を外す"
-        onClick={() =>
-          dispatch({ type: "deleteDependency", dependencyId: dependency.id })
-        }
-      >
-        <Unlink aria-hidden="true" size={14} />
-      </button>
-    </div>
+    <>
+      <div className="dependencyRow">
+        <span>{from?.title ?? dependency.fromId}</span>
+        <code title={`${dependency.lagSeconds}s`}>
+          {formatLagSeconds(dependency.lagSeconds)}
+        </code>
+        <button
+          type="button"
+          className="iconButton compactIconButton"
+          aria-label="時間差を編集"
+          title="時間差を編集"
+          onClick={() => setDraft(lagSecondsToDraft(dependency.lagSeconds))}
+        >
+          <Pencil aria-hidden="true" size={14} />
+        </button>
+        <button
+          type="button"
+          className="iconButton compactIconButton"
+          aria-label="依存関係を外す"
+          title="依存関係を外す"
+          onClick={() =>
+            dispatch({ type: "deleteDependency", dependencyId: dependency.id })
+          }
+        >
+          <Unlink aria-hidden="true" size={14} />
+        </button>
+      </div>
+      {draft && (
+        <div className="modalBackdrop">
+          <form
+            className="dependencyDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${dependency.id}-dialog-title`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              dispatch({
+                type: "updateDependencyLag",
+                dependencyId: dependency.id,
+                lagSeconds: draftToLagSeconds(draft),
+              });
+              setDraft(null);
+            }}
+          >
+            <h3 id={`${dependency.id}-dialog-title`}>先行依存を編集</h3>
+            <dl className="dependencyDialogSummary">
+              <div>
+                <dt>先行</dt>
+                <dd>{from?.title ?? dependency.fromId}</dd>
+              </div>
+              <div>
+                <dt>対象</dt>
+                <dd>{to?.title ?? dependency.toId}</dd>
+              </div>
+            </dl>
+            <fieldset className="lagEditor">
+              <legend>時間差</legend>
+              <label>
+                符号
+                <select
+                  value={draft.sign}
+                  onChange={(event) =>
+                    setDraft({ ...draft, sign: event.target.value as LagSign })
+                  }
+                >
+                  <option value="positive">+</option>
+                  <option value="negative">-</option>
+                </select>
+              </label>
+              <label>
+                日
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={draft.days}
+                  onChange={(event) => updateDraft("days", event.target.value)}
+                />
+              </label>
+              <label>
+                時間
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={draft.hours}
+                  onChange={(event) => updateDraft("hours", event.target.value)}
+                />
+              </label>
+              <label>
+                分
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={draft.minutes}
+                  onChange={(event) =>
+                    updateDraft("minutes", event.target.value)
+                  }
+                />
+              </label>
+            </fieldset>
+            <div className="dialogActions">
+              <button type="button" onClick={() => setDraft(null)}>
+                キャンセル
+              </button>
+              <button type="submit">適用</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   );
+}
+
+type LagSign = "positive" | "negative";
+
+type LagDraft = {
+  sign: LagSign;
+  days: number;
+  hours: number;
+  minutes: number;
+};
+
+function lagSecondsToDraft(totalSeconds: number): LagDraft {
+  const roundedMinutes = Math.round(Math.abs(totalSeconds) / 60);
+  const days = Math.floor(roundedMinutes / 1_440);
+  const remainingAfterDays = roundedMinutes % 1_440;
+  const hours = Math.floor(remainingAfterDays / 60);
+  const minutes = remainingAfterDays % 60;
+
+  return {
+    sign: totalSeconds < 0 ? "negative" : "positive",
+    days,
+    hours,
+    minutes,
+  };
+}
+
+function draftToLagSeconds(draft: LagDraft) {
+  const totalMinutes = draft.days * 1_440 + draft.hours * 60 + draft.minutes;
+  const sign = draft.sign === "negative" ? -1 : 1;
+  return sign * totalMinutes * 60;
 }
 
 function formatLagSeconds(totalSeconds: number) {
