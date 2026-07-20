@@ -12,9 +12,9 @@ export const sampleTimeline: TimelineDocument = {
     { id: "lane-release", name: "リリース", order: 2 },
   ],
   tags: [
-    { id: "planning", name: "Planning", color: "#2563eb", order: 0 },
-    { id: "build", name: "Build", color: "#059669", order: 1 },
-    { id: "release", name: "Release", color: "#dc2626", order: 2 },
+    { id: "planning", name: "Planning", color: "#4f46e5", order: 0 },
+    { id: "build", name: "Build", color: "#9333ea", order: 1 },
+    { id: "release", name: "Release", color: "#f97316", order: 2 },
   ],
   items: [
     {

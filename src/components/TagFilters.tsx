@@ -169,7 +169,7 @@ export function TagLaneSettings() {
           />
           <button
             type="submit"
-            className="iconButton"
+            className="create iconButton"
             aria-label="タグを追加"
             title="タグを追加"
           >
@@ -205,7 +205,7 @@ export function TagLaneSettings() {
           <input name="laneName" placeholder="レーン名" />
           <button
             type="submit"
-            className="iconButton"
+            className="create iconButton"
             aria-label="レーンを追加"
             title="レーンを追加"
           >

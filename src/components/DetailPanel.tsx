@@ -589,7 +589,9 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
               <button type="button" onClick={() => setDraft(null)}>
                 キャンセル
               </button>
-              <button type="submit">適用</button>
+              <button type="submit" className="primary">
+                適用
+              </button>
             </div>
           </form>
         </div>

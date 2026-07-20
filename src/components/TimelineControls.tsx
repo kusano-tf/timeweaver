@@ -155,7 +155,7 @@ export function TimelineControls() {
       <div className="toolbarGroup timelineEditActions">
         <button
           type="button"
-          className="iconButton"
+          className="create iconButton"
           aria-label="期間追加"
           title="期間追加"
           onClick={addDurationItem}
@@ -164,7 +164,7 @@ export function TimelineControls() {
         </button>
         <button
           type="button"
-          className="iconButton"
+          className="create iconButton"
           aria-label="時点追加"
           title="時点追加"
           onClick={addInstantItem}
