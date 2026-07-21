@@ -29,17 +29,19 @@ describe("timeline schema", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("defaults missing visibleRange to all items", () => {
+  it("defaults missing view fields for compatible documents", () => {
     const document = structuredClone(sampleTimeline) as {
       view: Partial<TimelineDocument["view"]>;
     };
     delete document.view.visibleRange;
+    delete document.view.themePreset;
 
     const result = parseTimelineDocument(document);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.document.view.visibleRange).toBeNull();
+      expect(result.document.view.themePreset).toBe("light");
     }
   });
 
@@ -204,6 +206,16 @@ describe("dependency behavior", () => {
 
     expect(state.dirty).toBe(true);
     expect(state.document.view.visibleRange).toEqual(visibleRange);
+  });
+
+  it("updates the timeline theme preset", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "setThemePreset",
+      themePreset: "dark",
+    });
+
+    expect(state.dirty).toBe(true);
+    expect(state.document.view.themePreset).toBe("dark");
   });
 
   it("selects a dependency and its dependent item", () => {

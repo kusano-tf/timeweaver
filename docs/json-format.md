@@ -4,7 +4,7 @@
 
 JSON は Timeweaver の保存形式であり、インポート / エクスポートの正本である。
 
-インポート時は厳格に検証し、エラーが 1 つでもあればファイル全体を読み込まない。部分読み込みや暗黙の補正は行わない。ただし、互換性のため `view.visibleRange` が欠けている場合だけ `null` として補完する。
+インポート時は厳格に検証し、エラーが 1 つでもあればファイル全体を読み込まない。部分読み込みや暗黙の補正は行わない。ただし、互換性のため `view.visibleRange` が欠けている場合は `null`、`view.themePreset` が欠けている場合は `"light"` として補完する。
 
 ## トップレベル構造
 
@@ -204,6 +204,7 @@ to.start = from.end + lagSeconds
 ```json
 {
   "scale": "month",
+  "themePreset": "light",
   "visibleRange": null,
   "visibleTagIds": ["planning", "release"],
   "tagFilterMode": "any",
@@ -216,6 +217,7 @@ to.start = from.end + lagSeconds
 ```
 
 - `scale`: `"year"` / `"month"` / `"day"` / `"hour"`。
+- `themePreset`: タイムライン本体のテーマプリセット。`"light"` / `"dark"`。
 - `visibleRange`: 表示中の時間範囲。`null` の場合は表示対象アイテム全体を自動表示する。ズームまたはパン後は `{ "start": "...", "end": "..." }` 形式で保存する。
 - `visibleTagIds`: 表示対象タグ ID。空なら全タグ対象。
 - `tagFilterMode`: 初期版では `"any"`。
@@ -227,7 +229,7 @@ to.start = from.end + lagSeconds
 
 タグ未設定アイテムは、`visibleTagIds` が空のときだけ表示する。タグが 1 つでも選択されている場合は非表示にする。
 
-`visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null` として扱う。
+`visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null`、`themePreset` が省略されている場合は `"light"` として扱う。
 
 ## 検証ルール
 
@@ -298,6 +300,7 @@ to.start = from.end + lagSeconds
   ],
   "view": {
     "scale": "day",
+    "themePreset": "light",
     "visibleRange": null,
     "visibleTagIds": [],
     "tagFilterMode": "any",

@@ -1,7 +1,19 @@
-import { Download, ImageDown, MoreHorizontal, Upload } from "lucide-react";
+import {
+  Download,
+  ImageDown,
+  MoreHorizontal,
+  Palette,
+  Upload,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { parseTimelineDocument } from "../domain/schema";
+import {
+  timelineThemeEntries,
+  timelineThemeLabels,
+  timelineThemes,
+} from "../domain/theme";
 import type { TimelineDocument } from "../domain/types";
 import {
   useTimelineDispatch,
@@ -12,6 +24,7 @@ export function Toolbar() {
   const { document: timelineDocument, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -27,6 +40,7 @@ export function Toolbar() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setExportMenuOpen(false);
+        setThemeDialogOpen(false);
       }
     }
 
@@ -83,6 +97,13 @@ export function Toolbar() {
     exportTimelineSvg(timelineDocument.timeline.title);
     setExportMenuOpen(false);
   }
+
+  function openThemeDialog() {
+    setThemeDialogOpen(true);
+    setExportMenuOpen(false);
+  }
+
+  const theme = timelineThemes[timelineDocument.view.themePreset];
 
   return (
     <header className="toolbar">
@@ -143,10 +164,78 @@ export function Toolbar() {
                 <Download aria-hidden="true" size={16} />
                 SVG出力
               </button>
+              <button type="button" role="menuitem" onClick={openThemeDialog}>
+                <Palette aria-hidden="true" size={16} />
+                テーマ設定
+              </button>
             </div>
           )}
         </div>
       </div>
+      {themeDialogOpen && (
+        <div className="modalBackdrop">
+          <section
+            className="themeDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="theme-dialog-title"
+          >
+            <div className="themeDialogHeader">
+              <h2 id="theme-dialog-title">テーマ設定</h2>
+              <button
+                type="button"
+                className="iconButton"
+                aria-label="テーマ設定を閉じる"
+                title="閉じる"
+                onClick={() => setThemeDialogOpen(false)}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </div>
+            <section className="themeDialogSection">
+              <h3>プリセット</h3>
+              <div className="themePresetList">
+                {(["light", "dark"] as const).map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className={
+                      timelineDocument.view.themePreset === preset
+                        ? "themePresetButton active"
+                        : "themePresetButton"
+                    }
+                    onClick={() =>
+                      dispatch({ type: "setThemePreset", themePreset: preset })
+                    }
+                  >
+                    {timelineThemeLabels[preset]}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="themeDialogSection">
+              <h3>タイムライン</h3>
+              <dl className="themeTokenList">
+                {timelineThemeEntries.map((entry) => {
+                  const value = theme[entry.key];
+                  return (
+                    <div key={entry.key} className="themeTokenRow">
+                      <dt>{entry.label}</dt>
+                      <dd>
+                        <span
+                          className="themeSwatch"
+                          style={{ background: value }}
+                        />
+                        <code>{value}</code>
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </section>
+          </section>
+        </div>
+      )}
     </header>
   );
 }
@@ -181,7 +270,8 @@ function exportTimelinePng(title: string) {
       URL.revokeObjectURL(url);
       return;
     }
-    context.fillStyle = "#ffffff";
+    context.fillStyle =
+      timelineThemes[timelineDocumentFallbackTheme()].timelineBackground;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0);
     URL.revokeObjectURL(url);
@@ -239,20 +329,35 @@ function serializeTimelineSvg() {
 }
 
 function clearExportSelectionState(svg: SVGSVGElement) {
-  svg.querySelectorAll<SVGElement>("[stroke='#0f172a']").forEach((element) => {
-    element.setAttribute("stroke", "#ffffff");
-    element.setAttribute("stroke-width", "2");
-  });
+  const preset = readTimelineThemePreset(svg);
+  const theme = timelineThemes[preset];
+  svg
+    .querySelectorAll<SVGElement>("[data-selected-stroke='true']")
+    .forEach((element) => {
+      element.setAttribute("stroke", theme.itemStroke);
+      element.setAttribute("stroke-width", "2");
+      element.removeAttribute("data-selected-stroke");
+    });
+  svg
+    .querySelectorAll<SVGElement>("[data-selected-dependency='true']")
+    .forEach((element) => {
+      element.setAttribute("stroke", theme.dependencyLine);
+      element.setAttribute("stroke-width", "2");
+      element.setAttribute("opacity", "0.55");
+      element.setAttribute("marker-end", "url(#arrow)");
+      element.removeAttribute("data-selected-dependency");
+    });
 }
 
 function embedTimelineSvgStyles(svg: SVGSVGElement) {
+  const theme = timelineThemes[readTimelineThemePreset(svg)];
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = `
-    .laneLabel { fill: #334155; font-size: 14px; font-weight: 700; }
-    .tickLabel { fill: #475569; font-size: 12px; font-weight: 700; }
-    .boundaryTickLabel { fill: #0f172a; font-size: 12px; font-weight: 800; }
-    .itemLabel { fill: #0f172a; font-size: 13px; font-weight: 700; pointer-events: none; }
-    .itemLabel.inBar { fill: #ffffff; }
+    .laneLabel { fill: ${theme.laneLabel}; font-size: 14px; font-weight: 700; }
+    .tickLabel { fill: ${theme.tickLabel}; font-size: 12px; font-weight: 700; }
+    .boundaryTickLabel { fill: ${theme.boundaryTickLabel}; font-size: 12px; font-weight: 800; }
+    .itemLabel { fill: ${theme.itemLabel}; font-size: 13px; font-weight: 700; pointer-events: none; }
+    .itemLabel.inBar { fill: ${theme.itemLabelOnColor}; }
   `;
 
   const defs = svg.querySelector("defs");
@@ -262,4 +367,15 @@ function embedTimelineSvgStyles(svg: SVGSVGElement) {
   }
 
   svg.prepend(style);
+}
+
+function readTimelineThemePreset(svg: SVGSVGElement) {
+  return svg.dataset.timelineTheme === "dark" ? "dark" : "light";
+}
+
+function timelineDocumentFallbackTheme() {
+  const svg = document.querySelector<SVGSVGElement>(
+    "[data-timeline-svg='true']",
+  );
+  return svg ? readTimelineThemePreset(svg) : "light";
 }

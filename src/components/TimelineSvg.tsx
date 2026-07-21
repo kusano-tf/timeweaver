@@ -15,6 +15,7 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { parseDateTime } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
+import { type TimelineTheme, timelineThemes } from "../domain/theme";
 import {
   createTimelineRange,
   panTimelineRange,
@@ -40,6 +41,7 @@ const itemGap = 8;
 export function TimelineSvg() {
   const { document, selectedItemId, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const theme = timelineThemes[document.view.themePreset];
   const shellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [timelineWidth, setTimelineWidth] = useState(minTimelineWidth);
@@ -236,6 +238,8 @@ export function TimelineSvg() {
       <svg
         ref={svgRef}
         data-timeline-svg="true"
+        data-timeline-theme={document.view.themePreset}
+        style={{ backgroundColor: theme.timelineBackground }}
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
@@ -249,7 +253,7 @@ export function TimelineSvg() {
         }}
         onPointerUp={handlePointerUp}
       >
-        <rect width={width} height={height} fill="#ffffff" />
+        <rect width={width} height={height} fill={theme.timelineBackground} />
         <TimelineTicks
           scale={document.view.scale}
           rangeStart={range.start}
@@ -257,6 +261,7 @@ export function TimelineSvg() {
           xForDate={xForDate}
           plotWidth={plotWidth}
           height={height}
+          theme={theme}
         />
         {sortedLanes.map((lane) => {
           const y = yForLane(lane.id);
@@ -268,10 +273,15 @@ export function TimelineSvg() {
                 y={y}
                 width={width}
                 height={laneHeight}
-                fill="#f8fafc"
+                fill={theme.laneBackground}
               />
-              <line x1={0} x2={width} y1={y} y2={y} stroke="#e2e8f0" />
-              <text x={20} y={y + 42} className="laneLabel">
+              <line x1={0} x2={width} y1={y} y2={y} stroke={theme.laneBorder} />
+              <text
+                x={20}
+                y={y + 42}
+                className="laneLabel"
+                fill={theme.laneLabel}
+              >
                 {lane.name}
               </text>
             </g>
@@ -295,7 +305,7 @@ export function TimelineSvg() {
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M 0 0 L 8 3 L 0 6 z" fill="#64748b" />
+            <path d="M 0 0 L 8 3 L 0 6 z" fill={theme.dependencyLine} />
           </marker>
           <marker
             id="selected-arrow"
@@ -306,7 +316,7 @@ export function TimelineSvg() {
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M 0 0 L 8 3 L 0 6 z" fill="#0f172a" />
+            <path d="M 0 0 L 8 3 L 0 6 z" fill={theme.uiSelectionStroke} />
           </marker>
         </defs>
         <g clipPath="url(#timeline-plot-clip)">
@@ -327,10 +337,13 @@ export function TimelineSvg() {
                   key={dependency.id}
                   d={createDependencyPath({ fromX, fromY, toX, toY })}
                   fill="none"
-                  stroke={isSelected ? "#0f172a" : "#64748b"}
+                  stroke={
+                    isSelected ? theme.uiSelectionStroke : theme.dependencyLine
+                  }
                   opacity={isSelected ? 1 : 0.55}
                   strokeWidth={isSelected ? 3 : 2}
                   className="dependencyLine"
+                  data-selected-dependency={isSelected ? "true" : undefined}
                   markerEnd={
                     isSelected ? "url(#selected-arrow)" : "url(#arrow)"
                   }
@@ -368,11 +381,19 @@ export function TimelineSvg() {
                   <path
                     d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
                     fill={color}
-                    stroke={isSelected ? "#0f172a" : "#ffffff"}
+                    stroke={
+                      isSelected ? theme.uiSelectionStroke : theme.itemStroke
+                    }
                     strokeWidth={isSelected ? 3 : 2}
+                    data-selected-stroke={isSelected ? "true" : undefined}
                   />
                   {document.view.itemDisplay.showLabels && (
-                    <text x={x + 16} y={y + 17} className="itemLabel">
+                    <text
+                      x={x + 16}
+                      y={y + 17}
+                      className="itemLabel"
+                      fill={theme.itemLabel}
+                    >
                       {item.title}
                     </text>
                   )}
@@ -404,11 +425,19 @@ export function TimelineSvg() {
                   height={28}
                   rx={6}
                   fill={color}
-                  stroke={isSelected ? "#0f172a" : "#ffffff"}
+                  stroke={
+                    isSelected ? theme.uiSelectionStroke : theme.itemStroke
+                  }
                   strokeWidth={isSelected ? 3 : 2}
+                  data-selected-stroke={isSelected ? "true" : undefined}
                 />
                 {document.view.itemDisplay.showLabels && (
-                  <text x={x + 10} y={y + 19} className="itemLabel inBar">
+                  <text
+                    x={x + 10}
+                    y={y + 19}
+                    className="itemLabel inBar"
+                    fill={theme.itemLabelOnColor}
+                  >
                     {item.title}
                   </text>
                 )}
@@ -428,6 +457,7 @@ function TimelineTicks({
   xForDate,
   plotWidth,
   height,
+  theme,
 }: {
   scale: TimelineScale;
   rangeStart: Date;
@@ -435,6 +465,7 @@ function TimelineTicks({
   xForDate: (date: Date) => number;
   plotWidth: number;
   height: number;
+  theme: TimelineTheme;
 }) {
   const ticks = createTicks(scale, rangeStart, rangeEnd);
   const boundaryTicks = createBoundaryTicks(scale, rangeStart, rangeEnd);
@@ -447,14 +478,14 @@ function TimelineTicks({
         y={0}
         width={plotWidth}
         height={headerHeight}
-        fill="#f1f5f9"
+        fill={theme.headerBackground}
       />
       <line
         x1={leftGutter}
         x2={leftGutter}
         y1={0}
         y2={height}
-        stroke="#cbd5e1"
+        stroke={theme.laneBorder}
       />
       {ticks.map((tick) => {
         const x = xForDate(tick);
@@ -466,11 +497,16 @@ function TimelineTicks({
               x2={x}
               y1={0}
               y2={height}
-              stroke={isBoundary ? "#cbd5e1" : "#e2e8f0"}
+              stroke={theme.laneBorder}
               strokeWidth={isBoundary ? 1.5 : 1}
             />
             {shouldShowTickLabel(scale, tick, labelInterval, isBoundary) && (
-              <text x={x + 6} y={34} className="tickLabel">
+              <text
+                x={x + 6}
+                y={34}
+                className="tickLabel"
+                fill={theme.tickLabel}
+              >
                 {formatTick(scale, tick)}
               </text>
             )}
@@ -486,10 +522,15 @@ function TimelineTicks({
               x2={x}
               y1={0}
               y2={height}
-              stroke="#94a3b8"
+              stroke={theme.tickLabel}
               strokeWidth={2}
             />
-            <text x={x + 6} y={18} className="boundaryTickLabel">
+            <text
+              x={x + 6}
+              y={18}
+              className="boundaryTickLabel"
+              fill={theme.boundaryTickLabel}
+            >
               {formatBoundaryTick(scale, tick)}
             </text>
           </g>

@@ -230,6 +230,89 @@ label {
   background: #f8fafc;
 }
 
+.themeDialog {
+  display: grid;
+  gap: 18px;
+  width: min(520px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 0.24);
+}
+
+.themeDialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.themeDialogHeader h2,
+.themeDialogSection h3 {
+  margin: 0;
+}
+
+.themeDialogSection {
+  display: grid;
+  gap: 10px;
+}
+
+.themePresetList {
+  display: flex;
+  gap: 8px;
+}
+
+.themePresetButton.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.themeTokenList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.themeTokenRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 9px 12px;
+}
+
+.themeTokenRow:last-child {
+  border-bottom: 0;
+}
+
+.themeTokenRow dt {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.themeTokenRow dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.themeSwatch {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
 .segmentedControl {
   display: inline-flex;
   align-items: center;
@@ -696,6 +779,7 @@ label {
 
 .timelineShell svg {
   min-width: 1180px;
+  overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #ffffff;
@@ -703,19 +787,16 @@ label {
 }
 
 .laneLabel {
-  fill: #334155;
   font-size: 14px;
   font-weight: 700;
 }
 
 .tickLabel {
-  fill: #475569;
   font-size: 12px;
   font-weight: 700;
 }
 
 .boundaryTickLabel {
-  fill: #0f172a;
   font-size: 12px;
   font-weight: 800;
 }
@@ -734,14 +815,9 @@ label {
 }
 
 .itemLabel {
-  fill: #0f172a;
   font-size: 13px;
   font-weight: 700;
   pointer-events: none;
-}
-
-.itemLabel.inBar {
-  fill: #ffffff;
 }
 
 .fieldGroup {

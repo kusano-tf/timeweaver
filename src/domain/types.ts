@@ -1,6 +1,7 @@
 export const schemaVersion = "1.0.0" as const;
 
 export type TimelineScale = "year" | "month" | "day" | "hour";
+export type TimelineThemePreset = "light" | "dark";
 export type ItemType = "duration" | "instant";
 export type DependencyType = "finish-to-start";
 export type DateTimeString = string;
@@ -56,6 +57,7 @@ export type Dependency = {
 
 export type TimelineView = {
   scale: TimelineScale;
+  themePreset: TimelineThemePreset;
   visibleRange: {
     start: DateTimeString;
     end: DateTimeString;
