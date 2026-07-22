@@ -467,8 +467,17 @@ function TimelineTicks({
   height: number;
   theme: TimelineTheme;
 }) {
-  const ticks = createTicks(scale, rangeStart, rangeEnd);
-  const boundaryTicks = createBoundaryTicks(scale, rangeStart, rangeEnd);
+  const yearTickInterval =
+    scale === "year"
+      ? createYearTickInterval(rangeStart, rangeEnd, plotWidth)
+      : 1;
+  const ticks = createTicks(scale, rangeStart, rangeEnd, yearTickInterval);
+  const boundaryTicks = createBoundaryTicks(
+    scale,
+    rangeStart,
+    rangeEnd,
+    yearTickInterval,
+  );
   const labelInterval = createLabelInterval(scale, ticks, xForDate);
   const boundaryTimes = new Set(boundaryTicks.map((tick) => tick.getTime()));
   return (
@@ -540,14 +549,22 @@ function TimelineTicks({
   );
 }
 
-function createTicks(scale: TimelineScale, start: Date, end: Date) {
+function createTicks(
+  scale: TimelineScale,
+  start: Date,
+  end: Date,
+  yearTickInterval = 1,
+) {
   const ticks: Date[] = [];
-  let current = startOfScale(scale, start);
+  let current =
+    scale === "year"
+      ? startOfYearInterval(start, yearTickInterval)
+      : startOfScale(scale, start);
 
   while (current <= end && ticks.length < 80) {
     ticks.push(current);
     if (scale === "year") {
-      current = addYears(current, 1);
+      current = addYears(current, yearTickInterval);
     } else if (scale === "month") {
       current = addMonths(current, 1);
     } else if (scale === "day") {
@@ -593,7 +610,29 @@ function itemOverlapsRange(item: TimelineItem, range: TimelineDateRange) {
   return start <= rangeEnd && end >= rangeStart;
 }
 
-function createBoundaryTicks(scale: TimelineScale, start: Date, end: Date) {
+function createBoundaryTicks(
+  scale: TimelineScale,
+  start: Date,
+  end: Date,
+  yearTickInterval = 1,
+) {
+  if (scale === "year") {
+    const boundaryInterval = createYearBoundaryInterval(yearTickInterval);
+    if (!boundaryInterval) {
+      return [];
+    }
+
+    const ticks: Date[] = [];
+    let current = startOfYearInterval(start, boundaryInterval);
+    while (current <= end && ticks.length < 80) {
+      if (current >= start) {
+        ticks.push(current);
+      }
+      current = addYears(current, boundaryInterval);
+    }
+    return ticks;
+  }
+
   if (scale !== "hour" && scale !== "day") {
     return [];
   }
@@ -617,6 +656,10 @@ function createLabelInterval(
   ticks: Date[],
   xForDate: (date: Date) => number,
 ) {
+  if (scale === "year") {
+    return 1;
+  }
+
   if (ticks.length < 2) {
     return 1;
   }
@@ -665,7 +708,7 @@ function nearestInterval(minInterval: number, intervals: number[]) {
 
 function formatTick(scale: TimelineScale, date: Date) {
   if (scale === "year") {
-    return format(date, "yyyy");
+    return formatYearLabel(date);
   }
   if (scale === "month") {
     return format(date, "yyyy-MM");
@@ -677,6 +720,9 @@ function formatTick(scale: TimelineScale, date: Date) {
 }
 
 function formatBoundaryTick(scale: TimelineScale, date: Date) {
+  if (scale === "year") {
+    return formatYearLabel(date);
+  }
   if (scale === "hour") {
     return format(date, "MM-dd");
   }
@@ -684,6 +730,35 @@ function formatBoundaryTick(scale: TimelineScale, date: Date) {
     return format(date, "yyyy-MM");
   }
   return formatTick(scale, date);
+}
+
+function createYearTickInterval(start: Date, end: Date, plotWidth: number) {
+  const minTickSpacing = 48;
+  const yearSpan = Math.max(1, end.getFullYear() - start.getFullYear() + 1);
+  const minInterval = Math.ceil((yearSpan * minTickSpacing) / plotWidth);
+  return nearestInterval(minInterval, [1, 5, 10, 25, 50, 100, 250, 500, 1000]);
+}
+
+function createYearBoundaryInterval(yearTickInterval: number) {
+  const boundaryInterval = nearestInterval(
+    yearTickInterval * 10,
+    [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
+  );
+  return boundaryInterval > yearTickInterval ? boundaryInterval : null;
+}
+
+function startOfYearInterval(date: Date, interval: number) {
+  const year = date.getFullYear();
+  const alignedYear = Math.ceil(year / interval) * interval;
+  const aligned = new Date(date);
+  aligned.setFullYear(alignedYear, 0, 1);
+  aligned.setHours(0, 0, 0, 0);
+  return aligned;
+}
+
+function formatYearLabel(date: Date) {
+  const year = date.getFullYear();
+  return String(year);
 }
 
 type ItemLayout = {
