@@ -37,6 +37,19 @@ const itemTopOffset = 20;
 const itemRowStep = 40;
 const itemHeight = 28;
 const itemGap = 8;
+const dragModeRatio = 1.2;
+
+type DragMode = "time" | "lane";
+
+type DragState = {
+  itemId: string;
+  startClientX: number;
+  startClientY: number;
+  currentClientX: number;
+  currentClientY: number;
+  laneId: string;
+  mode: DragMode | null;
+};
 
 export function TimelineSvg() {
   const { document, selectedItemId, selectedDependencyId } = useTimelineState();
@@ -45,12 +58,7 @@ export function TimelineSvg() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [timelineWidth, setTimelineWidth] = useState(minTimelineWidth);
-  const [drag, setDrag] = useState<{
-    itemId: string;
-    startClientX: number;
-    startClientY: number;
-    laneId: string;
-  } | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
 
   const tagFilteredItems = useMemo(
     () => filterItemsByTags(document.items, document.view.visibleTagIds),
@@ -89,6 +97,21 @@ export function TimelineSvg() {
   const itemLayout = createItemLayout(visibleItems, xForItemStart, xForItemEnd);
   const laneRowsById = countLaneRows(sortedLanes, itemLayout);
   const laneGeometry = createLaneGeometry(sortedLanes, laneRowsById);
+  const activeDrag = drag ? resolveDragState(drag) : null;
+  const previewLaneId =
+    drag && activeDrag?.mode === "lane"
+      ? (laneIdForClientY(drag.currentClientY) ?? drag.laneId)
+      : null;
+  const previewItems =
+    drag && previewLaneId
+      ? visibleItems.map((item) =>
+          item.id === drag.itemId ? { ...item, laneId: previewLaneId } : item,
+        )
+      : visibleItems;
+  const previewItemLayout =
+    drag && activeDrag?.mode === "lane"
+      ? createItemLayout(previewItems, xForItemStart, xForItemEnd)
+      : itemLayout;
   const height = laneGeometry.totalHeight + 32;
 
   useEffect(() => {
@@ -144,8 +167,16 @@ export function TimelineSvg() {
   }
 
   function yForItem(item: TimelineItem) {
+    return yForLayoutItem(item, itemLayout);
+  }
+
+  function yForPreviewItem(item: TimelineItem) {
+    return yForLayoutItem(item, previewItemLayout);
+  }
+
+  function yForLayoutItem(item: TimelineItem, layout: Map<string, ItemLayout>) {
     const laneTop = yForLane(item.laneId);
-    const row = itemLayout.get(item.id)?.row ?? 0;
+    const row = layout.get(item.id)?.row ?? 0;
     return laneTop + itemTopOffset + row * itemRowStep;
   }
 
@@ -180,9 +211,18 @@ export function TimelineSvg() {
       return;
     }
 
-    const deltaPx = event.clientX - drag.startClientX;
+    const nextDrag = resolveDragState({
+      ...drag,
+      currentClientX: event.clientX,
+      currentClientY: event.clientY,
+    });
+    const deltaPx =
+      nextDrag.mode === "time" ? event.clientX - drag.startClientX : 0;
     const deltaSeconds = Math.round((deltaPx / plotWidth) * (totalMs / 1000));
-    const laneId = laneIdForClientY(event.clientY) ?? drag.laneId;
+    const laneId =
+      nextDrag.mode === "lane"
+        ? (laneIdForClientY(event.clientY) ?? drag.laneId)
+        : drag.laneId;
 
     if (deltaSeconds !== 0 || laneId !== drag.laneId) {
       dispatch({ type: "moveItem", itemId: item.id, deltaSeconds, laneId });
@@ -233,6 +273,140 @@ export function TimelineSvg() {
     return new Date(range.start.getTime() + totalMs * ratio);
   }
 
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (!drag) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag((current) =>
+      current
+        ? resolveDragState({
+            ...current,
+            currentClientX: event.clientX,
+            currentClientY: event.clientY,
+          })
+        : current,
+    );
+  }
+
+  function beginDrag(item: TimelineItem, event: PointerEvent<SVGGElement>) {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dispatch({ type: "selectItem", itemId: item.id });
+    setDrag({
+      itemId: item.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      currentClientX: event.clientX,
+      currentClientY: event.clientY,
+      laneId: item.laneId,
+      mode: null,
+    });
+  }
+
+  function renderTimelineItem({
+    item,
+    x,
+    y,
+    opacity = 1,
+    pointerEvents,
+    keySuffix = "",
+  }: {
+    item: TimelineItem;
+    x: number;
+    y: number;
+    opacity?: number;
+    pointerEvents?: "none";
+    keySuffix?: string;
+  }) {
+    const color = getItemColor(item, tagsById);
+    const isSelected = item.id === selectedItemId;
+    const key = `${item.id}${keySuffix}`;
+    const commonProps = {
+      className: "timelineItem",
+      opacity,
+      pointerEvents,
+      onPointerDown: (event: PointerEvent<SVGGElement>) =>
+        beginDrag(item, event),
+    };
+
+    if (item.type === "instant") {
+      return (
+        <g key={key} {...commonProps}>
+          <path
+            d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
+            fill={color}
+            stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
+            strokeWidth={isSelected ? 3 : 2}
+            data-selected-stroke={isSelected ? "true" : undefined}
+          />
+          {document.view.itemDisplay.showLabels && (
+            <text
+              x={x + 16}
+              y={y + 17}
+              className="itemLabel"
+              fill={theme.itemLabel}
+            >
+              {item.title}
+            </text>
+          )}
+        </g>
+      );
+    }
+
+    const itemWidth = Math.max(16, xForItemEnd(item) - xForItemStart(item));
+    return (
+      <g key={key} {...commonProps}>
+        <rect
+          x={x}
+          y={y}
+          width={itemWidth}
+          height={28}
+          rx={6}
+          fill={color}
+          stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
+          strokeWidth={isSelected ? 3 : 2}
+          data-selected-stroke={isSelected ? "true" : undefined}
+        />
+        {document.view.itemDisplay.showLabels && (
+          <text
+            x={x + 10}
+            y={y + 19}
+            className="itemLabel inBar"
+            fill={theme.itemLabelOnColor}
+          >
+            {item.title}
+          </text>
+        )}
+      </g>
+    );
+  }
+
+  function renderDragPreview() {
+    if (!drag || !activeDrag) {
+      return null;
+    }
+
+    const item =
+      activeDrag.mode === "lane" && previewLaneId
+        ? previewItems.find((candidate) => candidate.id === drag.itemId)
+        : visibleItems.find((candidate) => candidate.id === drag.itemId);
+    if (!item) {
+      return null;
+    }
+
+    const deltaX =
+      activeDrag.mode === "time" ? drag.currentClientX - drag.startClientX : 0;
+    return renderTimelineItem({
+      item,
+      x: xForItemStart(item) + deltaX,
+      y: activeDrag.mode === "lane" ? yForPreviewItem(item) : yForItem(item),
+      pointerEvents: "none",
+      keySuffix: "-preview",
+    });
+  }
+
   return (
     <div className="timelineShell" ref={shellRef}>
       <svg
@@ -246,11 +420,7 @@ export function TimelineSvg() {
         role="img"
         aria-label="タイムライン"
         onPointerDown={() => dispatch({ type: "selectItem", itemId: null })}
-        onPointerMove={(event) => {
-          if (drag) {
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }
-        }}
+        onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
         <rect width={width} height={height} fill={theme.timelineBackground} />
@@ -357,97 +527,33 @@ export function TimelineSvg() {
                 />
               );
             })}
-          {visibleItems.map((item) => {
-            const y = yForItem(item);
-            const color = getItemColor(item, tagsById);
-            const isSelected = item.id === selectedItemId;
-            if (item.type === "instant") {
-              const x = xForItemStart(item);
-              return (
-                <g
-                  key={item.id}
-                  className="timelineItem"
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    dispatch({ type: "selectItem", itemId: item.id });
-                    setDrag({
-                      itemId: item.id,
-                      startClientX: event.clientX,
-                      startClientY: event.clientY,
-                      laneId: item.laneId,
-                    });
-                  }}
-                >
-                  <path
-                    d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
-                    fill={color}
-                    stroke={
-                      isSelected ? theme.uiSelectionStroke : theme.itemStroke
-                    }
-                    strokeWidth={isSelected ? 3 : 2}
-                    data-selected-stroke={isSelected ? "true" : undefined}
-                  />
-                  {document.view.itemDisplay.showLabels && (
-                    <text
-                      x={x + 16}
-                      y={y + 17}
-                      className="itemLabel"
-                      fill={theme.itemLabel}
-                    >
-                      {item.title}
-                    </text>
-                  )}
-                </g>
-              );
-            }
-
-            const x = xForItemStart(item);
-            const itemWidth = Math.max(16, xForItemEnd(item) - x);
-            return (
-              <g
-                key={item.id}
-                className="timelineItem"
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  dispatch({ type: "selectItem", itemId: item.id });
-                  setDrag({
-                    itemId: item.id,
-                    startClientX: event.clientX,
-                    startClientY: event.clientY,
-                    laneId: item.laneId,
-                  });
-                }}
-              >
-                <rect
-                  x={x}
-                  y={y}
-                  width={itemWidth}
-                  height={28}
-                  rx={6}
-                  fill={color}
-                  stroke={
-                    isSelected ? theme.uiSelectionStroke : theme.itemStroke
-                  }
-                  strokeWidth={isSelected ? 3 : 2}
-                  data-selected-stroke={isSelected ? "true" : undefined}
-                />
-                {document.view.itemDisplay.showLabels && (
-                  <text
-                    x={x + 10}
-                    y={y + 19}
-                    className="itemLabel inBar"
-                    fill={theme.itemLabelOnColor}
-                  >
-                    {item.title}
-                  </text>
-                )}
-              </g>
-            );
-          })}
+          {visibleItems.map((item) =>
+            renderTimelineItem({
+              item,
+              x: xForItemStart(item),
+              y: yForItem(item),
+              opacity: drag?.itemId === item.id ? 0.28 : 1,
+            }),
+          )}
+          {renderDragPreview()}
         </g>
       </svg>
     </div>
   );
+}
+
+function resolveDragState(drag: DragState): DragState & { mode: DragMode } {
+  const deltaX = Math.abs(drag.currentClientX - drag.startClientX);
+  const deltaY = Math.abs(drag.currentClientY - drag.startClientY);
+  let mode = drag.mode ?? "time";
+
+  if (deltaX > deltaY * dragModeRatio) {
+    mode = "time";
+  } else if (deltaY > deltaX * dragModeRatio) {
+    mode = "lane";
+  }
+
+  return { ...drag, mode };
 }
 
 function TimelineTicks({
