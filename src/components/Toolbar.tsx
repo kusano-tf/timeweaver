@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { createMermaidGantt } from "../domain/mermaid";
 import { parseTimelineDocument } from "../domain/schema";
 import {
   timelineThemeEntries,
@@ -98,6 +99,15 @@ export function Toolbar() {
     setExportMenuOpen(false);
   }
 
+  function handleExportMermaid() {
+    downloadText(
+      `${timelineDocument.timeline.title || "timeweaver"}.mmd`,
+      createMermaidGantt(timelineDocument),
+      "text/plain;charset=utf-8",
+    );
+    setExportMenuOpen(false);
+  }
+
   function openThemeDialog() {
     setThemeDialogOpen(true);
     setExportMenuOpen(false);
@@ -163,6 +173,14 @@ export function Toolbar() {
               <button type="button" role="menuitem" onClick={handleExportSvg}>
                 <Download aria-hidden="true" size={16} />
                 SVG出力
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleExportMermaid}
+              >
+                <Download aria-hidden="true" size={16} />
+                Mermaid出力
               </button>
               <button type="button" role="menuitem" onClick={openThemeDialog}>
                 <Palette aria-hidden="true" size={16} />

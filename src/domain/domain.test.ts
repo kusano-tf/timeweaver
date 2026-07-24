@@ -4,6 +4,7 @@ import { sampleTimeline } from "../data/sampleTimeline";
 import { type TimelineState, timelineReducer } from "../state/timelineReducer";
 import { fromDateTimeLocalMinute, toDateTimeLocalMinute } from "./datetime";
 import { filterItemsByTags } from "./filtering";
+import { createMermaidGantt } from "./mermaid";
 import { parseTimelineDocument } from "./schema";
 import {
   createTimelineRange,
@@ -135,6 +136,56 @@ describe("datetime input formatting", () => {
   it("rejects invalid datetime-local minute values", () => {
     expect(fromDateTimeLocalMinute("2026-02-30T09:30")).toBeNull();
     expect(fromDateTimeLocalMinute("")).toBeNull();
+  });
+});
+
+describe("Mermaid Gantt export", () => {
+  it("exports all items by lane and time without dependencies or tags", () => {
+    const mermaid = createMermaidGantt(sampleTimeline);
+
+    expect(mermaid).toBe(`gantt
+    title Timeweaver Sample
+    dateFormat YYYY-MM-DD HH:mm:ss
+    axisFormat %Y-%m-%d
+    todayMarker off
+    section 計画
+    設計 : task_1, 2026-07-13 09:00:00, 2026-07-15 18:00:00
+    section 実装
+    ドキュメント : task_2, 2026-07-16 09:00:00, 2026-07-18 18:00:00
+    実装 : task_3, 2026-07-16 09:00:00, 2026-07-20 18:00:00
+    section リリース
+    検証 : task_4, 2026-07-20 00:00:00, 2026-07-21 09:00:00
+    リリース : milestone, task_5, 2026-07-22 09:00:00, 0d
+`);
+    expect(mermaid).not.toContain("dep-");
+    expect(mermaid).not.toContain("Planning");
+  });
+
+  it("omits empty lanes and normalizes control characters", () => {
+    const document = structuredClone(sampleTimeline);
+    document.timeline.title = "予定\n表";
+    document.lanes[0].name = "計画\nレーン";
+    document.items[0].title = "設計\tA";
+    document.lanes.push({ id: "lane-empty", name: "空", order: 3 });
+
+    const mermaid = createMermaidGantt(document);
+
+    expect(mermaid).toContain("    title 予定 表");
+    expect(mermaid).toContain("    section 計画 レーン");
+    expect(mermaid).toContain("    設計 A : task_1");
+    expect(mermaid).not.toContain("section 空");
+  });
+
+  it("exports an empty document as a valid Gantt header", () => {
+    const document = structuredClone(sampleTimeline);
+    document.timeline.title = "";
+    document.items = [];
+
+    expect(createMermaidGantt(document)).toBe(`gantt
+    dateFormat YYYY-MM-DD HH:mm:ss
+    axisFormat %Y-%m-%d
+    todayMarker off
+`);
   });
 });
 
