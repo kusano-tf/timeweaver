@@ -38,6 +38,7 @@ const itemRowStep = 40;
 const itemHeight = 28;
 const itemGap = 8;
 const dragModeRatio = 1.2;
+const maxRenderedTicks = 80;
 
 type DragMode = "time" | "lane";
 
@@ -577,14 +578,26 @@ function TimelineTicks({
     scale === "year"
       ? createYearTickInterval(rangeStart, rangeEnd, plotWidth)
       : 1;
-  const ticks = createTicks(scale, rangeStart, rangeEnd, yearTickInterval);
+  const tickInterval = createTickInterval(
+    scale,
+    rangeStart,
+    rangeEnd,
+    xForDate,
+  );
+  const labelInterval = createLabelInterval(scale, rangeStart, xForDate);
+  const ticks = createTicks(
+    scale,
+    rangeStart,
+    rangeEnd,
+    yearTickInterval,
+    tickInterval,
+  );
   const boundaryTicks = createBoundaryTicks(
     scale,
     rangeStart,
     rangeEnd,
     yearTickInterval,
   );
-  const labelInterval = createLabelInterval(scale, ticks, xForDate);
   const boundaryTimes = new Set(boundaryTicks.map((tick) => tick.getTime()));
   return (
     <g>
@@ -660,30 +673,31 @@ function createTicks(
   start: Date,
   end: Date,
   yearTickInterval = 1,
+  tickInterval = 1,
 ) {
   const ticks: Date[] = [];
   let current =
     scale === "year"
       ? startOfYearInterval(start, yearTickInterval)
-      : startOfScale(scale, start);
+      : startOfScale(scale, start, tickInterval);
 
-  while (current <= end && ticks.length < 80) {
+  while (current <= end && ticks.length < maxRenderedTicks) {
     ticks.push(current);
     if (scale === "year") {
       current = addYears(current, yearTickInterval);
     } else if (scale === "month") {
-      current = addMonths(current, 1);
+      current = addMonths(current, tickInterval);
     } else if (scale === "day") {
-      current = addDays(current, 1);
+      current = addDays(current, tickInterval);
     } else {
-      current = addHours(current, 1);
+      current = addHours(current, tickInterval);
     }
   }
 
   return ticks;
 }
 
-function startOfScale(scale: TimelineScale, date: Date) {
+function startOfScale(scale: TimelineScale, date: Date, interval = 1) {
   if (scale === "year") {
     return startOfYear(date);
   }
@@ -691,9 +705,9 @@ function startOfScale(scale: TimelineScale, date: Date) {
     return startOfMonth(date);
   }
   if (scale === "day") {
-    return startOfDay(date);
+    return addDays(startOfDay(date), -((date.getDate() - 1) % interval));
   }
-  return startOfHour(date);
+  return addHours(startOfHour(date), -(date.getHours() % interval));
 }
 
 function filterItemsByRange(
@@ -730,7 +744,7 @@ function createBoundaryTicks(
 
     const ticks: Date[] = [];
     let current = startOfYearInterval(start, boundaryInterval);
-    while (current <= end && ticks.length < 80) {
+    while (current <= end && ticks.length < maxRenderedTicks) {
       if (current >= start) {
         ticks.push(current);
       }
@@ -747,7 +761,7 @@ function createBoundaryTicks(
   let current = scale === "hour" ? startOfDay(start) : startOfMonth(start);
   const addNext = scale === "hour" ? addDays : addMonths;
 
-  while (current <= end && ticks.length < 80) {
+  while (current <= end && ticks.length < maxRenderedTicks) {
     if (current >= start) {
       ticks.push(current);
     }
@@ -757,31 +771,75 @@ function createBoundaryTicks(
   return ticks;
 }
 
-function createLabelInterval(
+function createTickInterval(
   scale: TimelineScale,
-  ticks: Date[],
+  start: Date,
+  end: Date,
   xForDate: (date: Date) => number,
 ) {
   if (scale === "year") {
     return 1;
   }
 
-  if (ticks.length < 2) {
-    return 1;
-  }
-
-  const tickSpacing = Math.abs(xForDate(ticks[1]) - xForDate(ticks[0]));
+  const minTickSpacing = scale === "hour" ? 14 : 64;
+  const current = startOfScale(scale, start);
+  const next =
+    scale === "month"
+      ? addMonths(current, 1)
+      : scale === "day"
+        ? addDays(current, 1)
+        : addHours(current, 1);
+  const tickSpacing = Math.abs(xForDate(next) - xForDate(current));
   if (tickSpacing <= 0) {
     return 1;
   }
 
   if (scale === "hour") {
-    return nearestInterval(Math.ceil(56 / tickSpacing), [1, 3, 6, 12, 24]);
+    const visibleHours = Math.max(
+      1,
+      (end.getTime() - current.getTime()) / 3_600_000,
+    );
+    return nearestInterval(
+      Math.max(
+        Math.ceil(minTickSpacing / tickSpacing),
+        Math.ceil(visibleHours / maxRenderedTicks),
+      ),
+      [1, 3, 6, 12, 24, 48, 72, 168, 336, 720],
+    );
   }
   if (scale === "day") {
-    return nearestInterval(Math.ceil(64 / tickSpacing), [1, 2, 7, 14]);
+    return nearestInterval(
+      Math.ceil(minTickSpacing / tickSpacing),
+      [1, 2, 7, 14, 28, 56],
+    );
   }
   return 1;
+}
+
+function createLabelInterval(
+  scale: TimelineScale,
+  start: Date,
+  xForDate: (date: Date) => number,
+) {
+  if (scale === "year" || scale === "month") {
+    return 1;
+  }
+
+  const current = startOfScale(scale, start);
+  const next = scale === "day" ? addDays(current, 1) : addHours(current, 1);
+  const tickSpacing = Math.abs(xForDate(next) - xForDate(current));
+  if (tickSpacing <= 0) {
+    return 1;
+  }
+
+  if (scale === "hour") {
+    return nearestInterval(
+      Math.ceil(56 / tickSpacing),
+      [1, 3, 6, 12, 24, 48, 72, 168, 336, 720],
+    );
+  }
+
+  return nearestInterval(Math.ceil(64 / tickSpacing), [1, 2, 7, 14, 28, 56]);
 }
 
 function shouldShowTickLabel(
@@ -793,15 +851,13 @@ function shouldShowTickLabel(
   if (isBoundary) {
     return false;
   }
-  if (scale !== "hour" && scale !== "day") {
-    return true;
-  }
-
   if (scale === "hour") {
     return tick.getHours() % labelInterval === 0;
   }
-
-  return (tick.getDate() - 1) % labelInterval === 0;
+  if (scale === "day") {
+    return (tick.getDate() - 1) % labelInterval === 0;
+  }
+  return true;
 }
 
 function nearestInterval(minInterval: number, intervals: number[]) {

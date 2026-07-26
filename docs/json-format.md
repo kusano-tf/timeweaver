@@ -231,6 +231,8 @@ to.start = from.end + lagSeconds
 
 `scale` が `"year"` の場合、目盛り線とラベルの間隔は表示範囲と描画幅から自動決定する。JSON には 10 年単位や 100 年単位などの目盛り間隔は保存しない。
 
+`scale` が `"hour"` または `"day"` の場合も、目盛り線とラベルの間隔は表示範囲と描画幅から別々に自動決定する。これらの表示間隔は JSON には保存しない。
+
 タグ未設定アイテムは、`visibleTagIds` が空のときだけ表示する。タグが 1 つでも選択されている場合は非表示にする。
 
 `visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null`、`themePreset` が省略されている場合は `"light"` として扱う。
