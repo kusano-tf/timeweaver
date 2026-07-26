@@ -75,7 +75,7 @@ function TimeweaverApp() {
               <h1>{document.timeline.title}</h1>
               <button
                 type="button"
-                className="iconButton compactIconButton"
+                className="iconButton"
                 aria-label="設定"
                 title="設定"
                 onClick={() => setSettingsOpen(true)}
@@ -116,16 +116,15 @@ function TimeweaverApp() {
         </div>
       </main>
       {settingsOpen && (
-        <div className="settingsOverlay">
-          <button
-            type="button"
-            className="settingsBackdrop"
-            aria-label="設定を閉じる"
-            onClick={() => setSettingsOpen(false)}
-          />
-          <aside className="settingsPanel" aria-label="設定">
-            <div className="settingsHeader">
-              <h2>設定</h2>
+        <div className="modalBackdrop">
+          <section
+            className="settingsDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
+            <div className="settingsDialogHeader">
+              <h2 id="settings-dialog-title">設定</h2>
               <button
                 type="button"
                 className="iconButton"
@@ -138,7 +137,7 @@ function TimeweaverApp() {
             </div>
             <TimelineMetaSettings />
             <TagLaneSettings />
-          </aside>
+          </section>
         </div>
       )}
       <DebugOverlay />

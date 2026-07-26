@@ -418,39 +418,20 @@ label {
   margin-left: auto;
 }
 
-.settingsOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.settingsBackdrop {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background: rgb(15 23 42 / 0.22);
-  padding: 0;
-}
-
-.settingsPanel {
-  position: relative;
-  z-index: 1;
-  width: 380px;
-  max-width: calc(100vw - 72px);
-  height: 100%;
+.settingsDialog {
+  display: grid;
+  gap: 18px;
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
   overflow: auto;
-  border-left: 1px solid #cbd5e1;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #ffffff;
-  box-shadow: -18px 0 32px rgb(15 23 42 / 0.18);
-  padding: 16px;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 0.24);
 }
 
-.settingsHeader {
+.settingsDialogHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -458,7 +439,7 @@ label {
   margin-bottom: 18px;
 }
 
-.settingsHeader h2 {
+.settingsDialogHeader h2 {
   margin: 0;
 }
 
