@@ -1,4 +1,5 @@
 import {
+  Bug,
   Download,
   ImageDown,
   MoreHorizontal,
@@ -16,6 +17,7 @@ import {
   timelineThemes,
 } from "../domain/theme";
 import type { TimelineDocument } from "../domain/types";
+import { useDebugEnabled } from "../state/DebugContext";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -24,6 +26,8 @@ import {
 export function Toolbar() {
   const { document: timelineDocument, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const { enabled: debugEnabled, setEnabled: setDebugEnabled } =
+    useDebugEnabled();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
@@ -185,6 +189,18 @@ export function Toolbar() {
               <button type="button" role="menuitem" onClick={openThemeDialog}>
                 <Palette aria-hidden="true" size={16} />
                 テーマ設定
+              </button>
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={debugEnabled}
+                onClick={() => {
+                  setDebugEnabled(!debugEnabled);
+                  setExportMenuOpen(false);
+                }}
+              >
+                <Bug aria-hidden="true" size={16} />
+                デバッグ情報を表示
               </button>
             </div>
           )}

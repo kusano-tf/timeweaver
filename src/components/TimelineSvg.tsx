@@ -24,6 +24,7 @@ import {
   zoomTimelineRange,
 } from "../domain/timelineRange";
 import type { Lane, TimelineItem, TimelineScale } from "../domain/types";
+import { useDebugEnabled, useDebugReporter } from "../state/DebugContext";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -55,6 +56,8 @@ type DragState = {
 export function TimelineSvg() {
   const { document, selectedItemId, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const { enabled: debugEnabled } = useDebugEnabled();
+  const { reportTimeline } = useDebugReporter();
   const theme = timelineThemes[document.view.themePreset];
   const shellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -114,6 +117,74 @@ export function TimelineSvg() {
       ? createItemLayout(previewItems, xForItemStart, xForItemEnd)
       : itemLayout;
   const height = laneGeometry.totalHeight + 32;
+  const debugTickInfo = debugEnabled
+    ? createTickDebugInfo(
+        document.view.scale,
+        range.start,
+        range.end,
+        xForDate,
+        plotWidth,
+      )
+    : null;
+  const selectedItem =
+    debugEnabled && selectedItemId
+      ? (document.items.find((item) => item.id === selectedItemId) ?? null)
+      : null;
+  const selectedVisibleItem =
+    debugEnabled && selectedItemId
+      ? (itemById.get(selectedItemId) ?? null)
+      : null;
+  const selectedLayout = selectedVisibleItem
+    ? describeItemLayout(
+        selectedVisibleItem,
+        xForItemStart,
+        xForItemEnd,
+        yForItem,
+      )
+    : null;
+  const debugInfo = debugTickInfo
+    ? {
+        view: {
+          scale: document.view.scale,
+          visibleRange: formatRange(range),
+          baseRange: formatRange(fullRange),
+          zoomRatio:
+            (fullRange.end.getTime() - fullRange.start.getTime()) / totalMs,
+          pixelsPerHour: (plotWidth / totalMs) * 3_600_000,
+        },
+        render: {
+          svgSize: `${width} × ${height}px`,
+          plotWidth,
+          tickInterval: debugTickInfo.tickInterval,
+          labelInterval: debugTickInfo.labelInterval,
+          tickCount: debugTickInfo.tickCount,
+          boundaryTickCount: debugTickInfo.boundaryTickCount,
+          filteredItemCount: tagFilteredItems.length,
+          visibleItemCount: visibleItems.length,
+          visibleDependencyCount: visibleDependencies.length,
+        },
+        selection: {
+          item: selectedItem ? describeItem(selectedItem) : null,
+          dependency: selectedDependencyId ?? null,
+          itemLayout: selectedLayout,
+        },
+        interaction: {
+          drag: activeDrag
+            ? `${activeDrag.itemId} / ${activeDrag.mode} / Δx ${Math.round(activeDrag.currentClientX - activeDrag.startClientX)}px / Δy ${Math.round(activeDrag.currentClientY - activeDrag.startClientY)}px`
+            : null,
+          filter:
+            document.view.visibleTagIds.length > 0
+              ? document.view.visibleTagIds.join(", ")
+              : "なし",
+        },
+      }
+    : null;
+
+  useEffect(() => {
+    if (debugInfo) {
+      reportTimeline(debugInfo);
+    }
+  }, [debugInfo, reportTimeline]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -541,6 +612,85 @@ export function TimelineSvg() {
       </svg>
     </div>
   );
+}
+
+function createTickDebugInfo(
+  scale: TimelineScale,
+  rangeStart: Date,
+  rangeEnd: Date,
+  xForDate: (date: Date) => number,
+  plotWidth: number,
+) {
+  const yearTickInterval =
+    scale === "year"
+      ? createYearTickInterval(rangeStart, rangeEnd, plotWidth)
+      : 1;
+  const tickInterval = createTickInterval(
+    scale,
+    rangeStart,
+    rangeEnd,
+    xForDate,
+  );
+  const labelInterval = createLabelInterval(scale, rangeStart, xForDate);
+  const ticks = createTicks(
+    scale,
+    rangeStart,
+    rangeEnd,
+    yearTickInterval,
+    tickInterval,
+  );
+  const boundaryTicks = createBoundaryTicks(
+    scale,
+    rangeStart,
+    rangeEnd,
+    yearTickInterval,
+  );
+
+  return {
+    tickInterval:
+      scale === "year"
+        ? `${yearTickInterval}年`
+        : `${tickInterval}${tickUnit(scale)}`,
+    labelInterval:
+      scale === "year"
+        ? `${yearTickInterval}年`
+        : `${labelInterval}${tickUnit(scale)}`,
+    tickCount: ticks.length,
+    boundaryTickCount: boundaryTicks.length,
+  };
+}
+
+function tickUnit(scale: TimelineScale) {
+  if (scale === "hour") {
+    return "時間";
+  }
+  if (scale === "day") {
+    return "日";
+  }
+  return "か月";
+}
+
+function formatRange(range: TimelineDateRange) {
+  return `${format(range.start, "MM-dd HH:mm")} → ${format(range.end, "MM-dd HH:mm")}`;
+}
+
+function describeItem(item: TimelineItem) {
+  const timing =
+    item.type === "duration" ? `${item.start} → ${item.end}` : item.at;
+  return `${item.id} / ${item.type} / ${item.laneId} / ${timing}`;
+}
+
+function describeItemLayout(
+  item: TimelineItem,
+  xForStart: (item: TimelineItem) => number,
+  xForEnd: (item: TimelineItem) => number,
+  yForItem: (item: TimelineItem) => number,
+) {
+  const width =
+    item.type === "duration"
+      ? Math.max(16, xForEnd(item) - xForStart(item))
+      : 24;
+  return `x ${Math.round(xForStart(item))}, y ${Math.round(yForItem(item))}, ${Math.round(width)} × ${itemHeight}`;
 }
 
 function resolveDragState(drag: DragState): DragState & { mode: DragMode } {

@@ -801,6 +801,71 @@ label {
   font-weight: 800;
 }
 
+.debugOverlay {
+  position: fixed;
+  z-index: 100;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid rgb(163 230 53 / 0.72);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.82);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.4);
+  color: #bef264;
+  padding: 12px;
+  pointer-events: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.debugOverlayTitle {
+  border-bottom: 1px solid rgb(163 230 53 / 0.48);
+  color: #d9f99d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding-bottom: 6px;
+}
+
+.debugOverlaySection {
+  display: grid;
+  gap: 3px;
+}
+
+.debugOverlaySection h2 {
+  color: #a3e635;
+  font-size: 11px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.debugOverlaySection dl {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+}
+
+.debugOverlaySection :where(dl > div) {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.debugOverlaySection dt {
+  color: #84cc16;
+}
+
+.debugOverlaySection dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .timelineItem {
   cursor: grab;
 }

@@ -1,6 +1,6 @@
 import { PanelRightOpen, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
-
+import { DebugOverlay } from "./components/DebugOverlay";
 import { DependencyView } from "./components/DependencyView";
 import { DetailPanel } from "./components/DetailPanel";
 import { ImportIssues } from "./components/ImportIssues";
@@ -12,12 +12,19 @@ import {
 import { TimelineControls } from "./components/TimelineControls";
 import { TimelineSvg } from "./components/TimelineSvg";
 import { Toolbar } from "./components/Toolbar";
+import {
+  DebugProvider,
+  useDebugEnabled,
+  useDebugReporter,
+} from "./state/DebugContext";
 import { TimelineProvider, useTimelineState } from "./state/TimelineContext";
 
 export function App() {
   return (
     <TimelineProvider>
-      <TimeweaverApp />
+      <DebugProvider>
+        <TimeweaverApp />
+      </DebugProvider>
     </TimelineProvider>
   );
 }
@@ -26,6 +33,14 @@ function TimeweaverApp() {
   const { document, dirty } = useTimelineState();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(true);
+  const { enabled: debugEnabled } = useDebugEnabled();
+  const { reportApp } = useDebugReporter();
+
+  useEffect(() => {
+    if (debugEnabled) {
+      reportApp({ detailOpen });
+    }
+  }, [debugEnabled, detailOpen, reportApp]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -126,6 +141,7 @@ function TimeweaverApp() {
           </aside>
         </div>
       )}
+      <DebugOverlay />
     </div>
   );
 }
