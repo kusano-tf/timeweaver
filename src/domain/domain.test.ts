@@ -482,6 +482,27 @@ describe("dependency behavior", () => {
     ).toBe(54_000);
   });
 
+  it("keeps downstream items in place when propagation is disabled", () => {
+    const document = structuredClone(sampleTimeline);
+    const design = document.items.find((item) => item.id === "item-design");
+    if (design?.type !== "duration") {
+      throw new Error("Expected duration item");
+    }
+
+    const state = timelineReducer(stateFor(document), {
+      type: "updateItem",
+      item: { ...design, end: "2026-07-16T18:00:00" },
+      propagate: false,
+    });
+    const build = state.document.items.find((item) => item.id === "item-build");
+
+    expect(build?.type).toBe("duration");
+    if (build?.type === "duration") {
+      expect(build.start).toBe("2026-07-16T09:00:00");
+      expect(build.end).toBe("2026-07-20T18:00:00");
+    }
+  });
+
   it("does not move downstream items when only a predecessor start changes", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
@@ -503,7 +524,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("moves downstream items when an instant predecessor changes", () => {
+  it("moves downstream items by the same delta when an instant predecessor changes", () => {
     const document = structuredClone(sampleTimeline);
     const release = document.items.find((item) => item.id === "item-release");
     if (release?.type !== "instant") {
@@ -539,11 +560,11 @@ describe("dependency behavior", () => {
 
     expect(followup?.type).toBe("instant");
     if (followup?.type === "instant") {
-      expect(followup.at).toBe("2026-07-23T10:00:00");
+      expect(followup.at).toBe("2026-07-22T11:00:00");
     }
   });
 
-  it("does not move downstream items backward when a predecessor end moves backward", () => {
+  it("moves downstream items backward when a predecessor end moves backward", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -559,12 +580,12 @@ describe("dependency behavior", () => {
 
     expect(build?.type).toBe("duration");
     if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-16T09:00:00");
-      expect(build.end).toBe("2026-07-20T18:00:00");
+      expect(build.start).toBe("2026-07-15T09:00:00");
+      expect(build.end).toBe("2026-07-19T18:00:00");
     }
   });
 
-  it("does not move downstream items when another predecessor still constrains them", () => {
+  it("moves downstream items even when another predecessor is unchanged", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -599,14 +620,14 @@ describe("dependency behavior", () => {
 
     expect(build?.type).toBe("duration");
     if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-17T09:00:00");
-      expect(build.end).toBe("2026-07-21T18:00:00");
+      expect(build.start).toBe("2026-07-17T03:00:00");
+      expect(build.end).toBe("2026-07-21T12:00:00");
     }
     expect(
       state.document.dependencies.find(
         (dependency) => dependency.id === "dep-design-build",
       )?.lagSeconds,
-    ).toBe(75_600);
+    ).toBe(54_000);
   });
 
   it("recalculates all incoming lag when a downstream item is pushed", () => {
@@ -659,7 +680,7 @@ describe("dependency behavior", () => {
     ).toBe(172_800);
   });
 
-  it("uses the latest incoming constraint through converging dependencies", () => {
+  it("moves each downstream item only once through converging dependencies", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -723,7 +744,7 @@ describe("dependency behavior", () => {
 
     expect(merge?.type).toBe("instant");
     if (merge?.type === "instant") {
-      expect(merge.at).toBe("2026-07-22T14:00:00");
+      expect(merge.at).toBe("2026-07-22T10:00:00");
     }
   });
 

@@ -235,6 +235,8 @@ to.start = from.end + lagSeconds
 
 開発者向けデバッグ情報オーバーレイの表示状態と診断値は JSON に含めない。ブラウザの同一タブ内だけで扱うUI状態である。
 
+アイテム日時の変更時に後続へ伝播するかどうかの選択も、一時的な操作UI状態であり JSON には保存しない。伝播・非伝播のいずれでも、変更後のアイテム日時と再計算済みの `lagSeconds` を保存する。
+
 タグ未設定アイテムは、`visibleTagIds` が空のときだけ表示する。タグが 1 つでも選択されている場合は非表示にする。
 
 `visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null`、`themePreset` が省略されている場合は `"light"` として扱う。

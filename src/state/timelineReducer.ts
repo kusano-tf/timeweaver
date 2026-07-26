@@ -1,6 +1,7 @@
 import { addSecondsToDateTime, secondsBetween } from "../domain/datetime";
 import {
   detectDependencyCycles,
+  propagateConstraintViolations,
   propagateMove,
   recalculateConnectedLagSeconds,
 } from "../domain/dependencies";
@@ -36,8 +37,14 @@ export type TimelineAction =
   | { type: "setThemePreset"; themePreset: TimelineThemePreset }
   | { type: "setVisibleRange"; visibleRange: TimelineView["visibleRange"] }
   | { type: "toggleTag"; tagId: string }
-  | { type: "updateItem"; item: TimelineItem }
-  | { type: "moveItem"; itemId: string; deltaSeconds: number; laneId?: string }
+  | { type: "updateItem"; item: TimelineItem; propagate?: boolean }
+  | {
+      type: "moveItem";
+      itemId: string;
+      deltaSeconds: number;
+      laneId?: string;
+      propagate?: boolean;
+    }
   | { type: "addItem"; item: TimelineItem }
   | { type: "copyItem"; itemId: string }
   | { type: "deleteItem"; itemId: string }
@@ -179,7 +186,7 @@ export function timelineReducer(
         ),
       };
       const propagation =
-        endDeltaSeconds === 0
+        endDeltaSeconds === 0 || action.propagate === false
           ? { document: updatedDocument, changedItemIds: [] }
           : propagateMove(updatedDocument, nextItem.id, endDeltaSeconds);
 
@@ -207,11 +214,10 @@ export function timelineReducer(
         }),
       };
 
-      const propagation = propagateMove(
-        movedDocument,
-        action.itemId,
-        action.deltaSeconds,
-      );
+      const propagation =
+        action.propagate === false
+          ? { document: movedDocument, changedItemIds: [] }
+          : propagateMove(movedDocument, action.itemId, action.deltaSeconds);
 
       return {
         ...state,
@@ -349,10 +355,9 @@ export function timelineReducer(
             : candidate,
         ),
       };
-      const propagation = propagateMove(
+      const propagation = propagateConstraintViolations(
         updatedDocument,
         toItem.id,
-        deltaSeconds,
       );
 
       return {

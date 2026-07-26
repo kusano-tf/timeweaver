@@ -27,6 +27,7 @@ import {
   useTimelineDispatch,
   useTimelineState,
 } from "../state/TimelineContext";
+import { PropagationPrompt } from "./PropagationPrompt";
 
 export function DetailPanel({ onClose }: { onClose: () => void }) {
   const { document, selectedItemId } = useTimelineState();
@@ -36,6 +37,23 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
   const sortedLanes = sortByOrder(document.lanes);
   const sortedTags = sortByOrder(document.tags);
   const tagsById = new Map(document.tags.map((tag) => [tag.id, tag]));
+  const [pendingItemUpdate, setPendingItemUpdate] = useState<{
+    item: TimelineItem;
+    descendantCount: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pendingItemUpdate) {
+      return;
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPendingItemUpdate(null);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingItemUpdate]);
 
   if (!selected) {
     return (
@@ -57,13 +75,25 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
     );
   }
 
-  function updateItem(next: TimelineItem) {
-    dispatch({ type: "updateItem", item: next });
+  function updateItem(next: TimelineItem, propagate?: boolean) {
+    dispatch({ type: "updateItem", item: next, propagate });
   }
 
   const incomingDependencies = document.dependencies.filter(
     (dependency) => dependency.toId === selected.id,
   );
+  const descendantCount = countDescendants(selected.id, document.dependencies);
+  const activePendingItemUpdate =
+    pendingItemUpdate?.item.id === selected.id ? pendingItemUpdate : null;
+
+  function requestOutputChange(next: TimelineItem) {
+    if (descendantCount === 0) {
+      updateItem(next);
+      return true;
+    }
+    setPendingItemUpdate({ item: next, descendantCount });
+    return false;
+  }
 
   return (
     <aside className="detailPanel">
@@ -146,7 +176,7 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
               id={`${selected.id}-start`}
               key={`${selected.id}-start`}
               value={selected.start}
-              onChange={(start) => {
+              onCommit={(start) => {
                 if (compareDateTime(start, selected.end) < 0) {
                   updateItem({ ...selected, start });
                   return true;
@@ -161,10 +191,9 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
               id={`${selected.id}-end`}
               key={`${selected.id}-end`}
               value={selected.end}
-              onChange={(end) => {
+              onCommit={(end) => {
                 if (compareDateTime(selected.start, end) < 0) {
-                  updateItem({ ...selected, end });
-                  return true;
+                  return requestOutputChange({ ...selected, end });
                 }
                 return false;
               }}
@@ -178,12 +207,24 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
             id={`${selected.id}-at`}
             key={`${selected.id}-at`}
             value={selected.at}
-            onChange={(at) => {
-              updateItem({ ...selected, at });
-              return true;
-            }}
+            onCommit={(at) => requestOutputChange({ ...selected, at })}
           />
         </label>
+      )}
+
+      {activePendingItemUpdate && (
+        <PropagationPrompt
+          descendantCount={activePendingItemUpdate.descendantCount}
+          onPropagate={() => {
+            updateItem(activePendingItemUpdate.item, true);
+            setPendingItemUpdate(null);
+          }}
+          onKeepLocal={() => {
+            updateItem(activePendingItemUpdate.item, false);
+            setPendingItemUpdate(null);
+          }}
+          onCancel={() => setPendingItemUpdate(null)}
+        />
       )}
 
       <ColorControls
@@ -308,11 +349,11 @@ function TagPicker({
 function DateTimeInput({
   id,
   value,
-  onChange,
+  onCommit,
 }: {
   id: string;
   value: DateTimeString;
-  onChange: (value: DateTimeString) => boolean;
+  onCommit: (value: DateTimeString) => boolean;
 }) {
   const [inputValue, setInputValue] = useState(toDateTimeLocalMinute(value));
 
@@ -324,29 +365,55 @@ function DateTimeInput({
     setInputValue(toDateTimeLocalMinute(value));
   }
 
+  function commit() {
+    const next = fromDateTimeLocalMinute(inputValue);
+    if (!next || (next !== value && !onCommit(next))) {
+      reset();
+    }
+  }
+
   return (
     <input
       id={id}
       type="datetime-local"
       step={60}
       value={inputValue}
-      onBlur={() => {
-        const next = fromDateTimeLocalMinute(inputValue);
-        if (!next || (next !== value && !onChange(next))) {
-          reset();
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
         }
       }}
       onChange={(event) => {
-        const nextInputValue = event.target.value;
-        setInputValue(nextInputValue);
-
-        const next = fromDateTimeLocalMinute(nextInputValue);
-        if (next) {
-          onChange(next);
-        }
+        setInputValue(event.target.value);
       }}
     />
   );
+}
+
+function countDescendants(itemId: string, dependencies: Dependency[]) {
+  const outgoing = new Map<string, string[]>();
+  for (const dependency of dependencies) {
+    const next = outgoing.get(dependency.fromId) ?? [];
+    next.push(dependency.toId);
+    outgoing.set(dependency.fromId, next);
+  }
+  const descendants = new Set<string>();
+  const queue = [itemId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+    for (const next of outgoing.get(current) ?? []) {
+      if (!descendants.has(next)) {
+        descendants.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return descendants.size;
 }
 
 function ColorControls({

@@ -29,6 +29,7 @@ import {
   useTimelineDispatch,
   useTimelineState,
 } from "../state/TimelineContext";
+import { PropagationPrompt } from "./PropagationPrompt";
 
 const minLaneHeight = 72;
 const headerHeight = 56;
@@ -53,6 +54,13 @@ type DragState = {
   mode: DragMode | null;
 };
 
+type PendingMove = {
+  itemId: string;
+  deltaSeconds: number;
+  deltaPx: number;
+  descendantCount: number;
+};
+
 export function TimelineSvg() {
   const { document, selectedItemId, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
@@ -63,6 +71,7 @@ export function TimelineSvg() {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [timelineWidth, setTimelineWidth] = useState(minTimelineWidth);
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
   const tagFilteredItems = useMemo(
     () => filterItemsByTags(document.items, document.view.visibleTagIds),
@@ -197,6 +206,19 @@ export function TimelineSvg() {
   });
 
   useEffect(() => {
+    if (!pendingMove) {
+      return;
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPendingMove(null);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingMove]);
+
+  useEffect(() => {
     const shell = shellRef.current;
     if (!shell) {
       return;
@@ -296,8 +318,22 @@ export function TimelineSvg() {
         ? (laneIdForClientY(event.clientY) ?? drag.laneId)
         : drag.laneId;
 
-    if (deltaSeconds !== 0 || laneId !== drag.laneId) {
-      dispatch({ type: "moveItem", itemId: item.id, deltaSeconds, laneId });
+    const descendantCount = countDescendants(item.id, document.dependencies);
+    if (nextDrag.mode === "time" && deltaSeconds !== 0 && descendantCount > 0) {
+      setPendingMove({
+        itemId: item.id,
+        deltaSeconds,
+        deltaPx,
+        descendantCount,
+      });
+    } else if (deltaSeconds !== 0 || laneId !== drag.laneId) {
+      dispatch({
+        type: "moveItem",
+        itemId: item.id,
+        deltaSeconds,
+        laneId,
+        propagate: nextDrag.mode === "time",
+      });
     }
     setDrag(null);
   }
@@ -456,6 +492,22 @@ export function TimelineSvg() {
   }
 
   function renderDragPreview() {
+    if (pendingMove) {
+      const item = visibleItems.find(
+        (candidate) => candidate.id === pendingMove.itemId,
+      );
+      if (!item) {
+        return null;
+      }
+      return renderTimelineItem({
+        item,
+        x: xForItemStart(item) + pendingMove.deltaPx,
+        y: yForItem(item),
+        pointerEvents: "none",
+        keySuffix: "-pending-preview",
+      });
+    }
+
     if (!drag || !activeDrag) {
       return null;
     }
@@ -491,7 +543,13 @@ export function TimelineSvg() {
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="タイムライン"
-        onPointerDown={() => dispatch({ type: "selectItem", itemId: null })}
+        onPointerDown={() => {
+          if (pendingMove) {
+            setPendingMove(null);
+            return;
+          }
+          dispatch({ type: "selectItem", itemId: null });
+        }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
@@ -604,12 +662,39 @@ export function TimelineSvg() {
               item,
               x: xForItemStart(item),
               y: yForItem(item),
-              opacity: drag?.itemId === item.id ? 0.28 : 1,
+              opacity:
+                drag?.itemId === item.id || pendingMove?.itemId === item.id
+                  ? 0.28
+                  : 1,
             }),
           )}
           {renderDragPreview()}
         </g>
       </svg>
+      {pendingMove && (
+        <PropagationPrompt
+          descendantCount={pendingMove.descendantCount}
+          onPropagate={() => {
+            dispatch({
+              type: "moveItem",
+              itemId: pendingMove.itemId,
+              deltaSeconds: pendingMove.deltaSeconds,
+              propagate: true,
+            });
+            setPendingMove(null);
+          }}
+          onKeepLocal={() => {
+            dispatch({
+              type: "moveItem",
+              itemId: pendingMove.itemId,
+              deltaSeconds: pendingMove.deltaSeconds,
+              propagate: false,
+            });
+            setPendingMove(null);
+          }}
+          onCancel={() => setPendingMove(null)}
+        />
+      )}
     </div>
   );
 }
@@ -691,6 +776,34 @@ function describeItemLayout(
       ? Math.max(16, xForEnd(item) - xForStart(item))
       : 24;
   return `x ${Math.round(xForStart(item))}, y ${Math.round(yForItem(item))}, ${Math.round(width)} × ${itemHeight}`;
+}
+
+function countDescendants(
+  itemId: string,
+  dependencies: { fromId: string; toId: string }[],
+) {
+  const outgoing = new Map<string, string[]>();
+  for (const dependency of dependencies) {
+    const next = outgoing.get(dependency.fromId) ?? [];
+    next.push(dependency.toId);
+    outgoing.set(dependency.fromId, next);
+  }
+
+  const descendants = new Set<string>();
+  const queue = [itemId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+    for (const next of outgoing.get(current) ?? []) {
+      if (!descendants.has(next)) {
+        descendants.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return descendants.size;
 }
 
 function resolveDragState(drag: DragState): DragState & { mode: DragMode } {

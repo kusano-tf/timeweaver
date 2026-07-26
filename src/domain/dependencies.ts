@@ -52,24 +52,20 @@ export function detectDependencyCycles(dependencies: Dependency[]): string[][] {
 export function propagateMove(
   document: TimelineDocument,
   movedItemId: string,
-  _deltaSeconds: number,
+  deltaSeconds: number,
 ): { document: TimelineDocument; changedItemIds: string[] } {
   const itemsById = new Map(document.items.map((item) => [item.id, item]));
   const changedItems = new Map<string, TimelineItem>();
   const outgoing = new Map<string, Dependency[]>();
-  const incoming = new Map<string, Dependency[]>();
 
   for (const dependency of document.dependencies) {
     const next = outgoing.get(dependency.fromId) ?? [];
     next.push(dependency);
     outgoing.set(dependency.fromId, next);
-
-    const previous = incoming.get(dependency.toId) ?? [];
-    previous.push(dependency);
-    incoming.set(dependency.toId, previous);
   }
 
   const moveQueue = [movedItemId];
+  const moved = new Set<string>([movedItemId]);
 
   while (moveQueue.length > 0) {
     const fromId = moveQueue.shift();
@@ -78,34 +74,19 @@ export function propagateMove(
     }
 
     for (const dependency of outgoing.get(fromId) ?? []) {
+      if (moved.has(dependency.toId)) {
+        continue;
+      }
       const current =
         changedItems.get(dependency.toId) ?? itemsById.get(dependency.toId);
       if (!current) {
         continue;
       }
-
-      const constrainedStart = maxIncomingConstraintStart(
-        dependency.toId,
-        incoming,
-        itemsById,
-        changedItems,
-      );
-      if (
-        !constrainedStart ||
-        compareDateTime(getItemStart(current), constrainedStart) >= 0
-      ) {
-        continue;
-      }
-
-      const deltaSeconds = secondsBetween(
-        getItemStart(current),
-        constrainedStart,
-      );
       changedItems.set(
         dependency.toId,
         moveItemBySeconds(current, deltaSeconds),
       );
-
+      moved.add(dependency.toId);
       moveQueue.push(dependency.toId);
     }
   }
@@ -123,22 +104,85 @@ export function propagateMove(
   };
 }
 
+export function propagateConstraintViolations(
+  document: TimelineDocument,
+  movedItemId: string,
+): { document: TimelineDocument; changedItemIds: string[] } {
+  const itemsById = new Map(document.items.map((item) => [item.id, item]));
+  const changedItems = new Map<string, TimelineItem>();
+  const outgoing = new Map<string, Dependency[]>();
+  const incoming = new Map<string, Dependency[]>();
+
+  for (const dependency of document.dependencies) {
+    const next = outgoing.get(dependency.fromId) ?? [];
+    next.push(dependency);
+    outgoing.set(dependency.fromId, next);
+    const previous = incoming.get(dependency.toId) ?? [];
+    previous.push(dependency);
+    incoming.set(dependency.toId, previous);
+  }
+
+  const moveQueue = [movedItemId];
+  while (moveQueue.length > 0) {
+    const fromId = moveQueue.shift();
+    if (!fromId) {
+      continue;
+    }
+    for (const dependency of outgoing.get(fromId) ?? []) {
+      const current =
+        changedItems.get(dependency.toId) ?? itemsById.get(dependency.toId);
+      if (!current) {
+        continue;
+      }
+      const constrainedStart = maxIncomingConstraintStart(
+        dependency.toId,
+        incoming,
+        itemsById,
+        changedItems,
+      );
+      if (
+        !constrainedStart ||
+        compareDateTime(getItemStart(current), constrainedStart) >= 0
+      ) {
+        continue;
+      }
+      const deltaSeconds = secondsBetween(
+        getItemStart(current),
+        constrainedStart,
+      );
+      changedItems.set(
+        dependency.toId,
+        moveItemBySeconds(current, deltaSeconds),
+      );
+      moveQueue.push(dependency.toId);
+    }
+  }
+
+  if (changedItems.size === 0) {
+    return { document, changedItemIds: [] };
+  }
+  return {
+    document: {
+      ...document,
+      items: document.items.map((item) => changedItems.get(item.id) ?? item),
+    },
+    changedItemIds: [...changedItems.keys()],
+  };
+}
+
 function maxIncomingConstraintStart(
   itemId: string,
   incoming: Map<string, Dependency[]>,
   itemsById: Map<string, TimelineItem>,
   changedItems: Map<string, TimelineItem>,
 ) {
-  const dependencies = incoming.get(itemId) ?? [];
   let constrainedStart: string | null = null;
-
-  for (const dependency of dependencies) {
+  for (const dependency of incoming.get(itemId) ?? []) {
     const fromItem =
       changedItems.get(dependency.fromId) ?? itemsById.get(dependency.fromId);
     if (!fromItem) {
       continue;
     }
-
     const candidate = addSecondsToDateTime(
       getItemEnd(fromItem),
       dependency.lagSeconds,
@@ -147,7 +191,6 @@ function maxIncomingConstraintStart(
       constrainedStart = candidate;
     }
   }
-
   return constrainedStart;
 }
 

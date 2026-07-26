@@ -771,10 +771,62 @@ label {
 }
 
 .timelineShell {
+  position: relative;
   min-height: 0;
   overflow: auto;
   background: #e5e7eb;
   padding: 18px;
+}
+
+.propagationPromptOverlay {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.propagationPromptBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.propagationPrompt {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.2);
+}
+
+.propagationPrompt p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.propagationPrompt > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.propagationPrompt button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.textButton {
+  border-color: transparent;
+  background: transparent;
+  color: #475569;
 }
 
 .timelineShell svg {
