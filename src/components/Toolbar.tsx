@@ -1,5 +1,6 @@
 import {
   Bug,
+  BugOff,
   Download,
   ImageDown,
   MoreHorizontal,
@@ -199,8 +200,12 @@ export function Toolbar() {
                   setExportMenuOpen(false);
                 }}
               >
-                <Bug aria-hidden="true" size={16} />
-                デバッグ情報を表示
+                {debugEnabled ? (
+                  <BugOff aria-hidden="true" size={16} />
+                ) : (
+                  <Bug aria-hidden="true" size={16} />
+                )}
+                {debugEnabled ? "デバッグ情報を非表示" : "デバッグ情報を表示"}
               </button>
             </div>
           )}
