@@ -6,6 +6,8 @@ import { fromDateTimeLocalMinute, toDateTimeLocalMinute } from "./datetime";
 import { filterItemsByTags } from "./filtering";
 import { createMermaidGantt } from "./mermaid";
 import { parseTimelineDocument } from "./schema";
+import { getThemeTokens, timelineThemes } from "./theme";
+import { parseTimelineThemeDocument, themeSchemaVersion } from "./themeSchema";
 import {
   createTimelineRange,
   panTimelineRange,
@@ -35,14 +37,26 @@ describe("timeline schema", () => {
       view: Partial<TimelineDocument["view"]>;
     };
     delete document.view.visibleRange;
-    delete document.view.themePreset;
 
     const result = parseTimelineDocument(document);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.document.view.visibleRange).toBeNull();
-      expect(result.document.view.themePreset).toBe("light");
+    }
+  });
+
+  it("accepts legacy themePreset but does not retain it", () => {
+    const document = structuredClone(sampleTimeline) as TimelineDocument & {
+      view: TimelineDocument["view"] & { themePreset: "dark" };
+    };
+    document.view.themePreset = "dark";
+
+    const result = parseTimelineDocument(document);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect("themePreset" in result.document.view).toBe(false);
     }
   });
 
@@ -257,16 +271,6 @@ describe("dependency behavior", () => {
 
     expect(state.dirty).toBe(true);
     expect(state.document.view.visibleRange).toEqual(visibleRange);
-  });
-
-  it("updates the timeline theme preset", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "setThemePreset",
-      themePreset: "dark",
-    });
-
-    expect(state.dirty).toBe(true);
-    expect(state.document.view.themePreset).toBe("dark");
   });
 
   it("selects a dependency and its dependent item", () => {
@@ -764,6 +768,27 @@ describe("dependency behavior", () => {
       sampleTimeline.dependencies.length,
     );
     expect(state.importIssues[0]?.message).toContain("循環");
+  });
+});
+
+describe("theme schema", () => {
+  it("accepts a standalone theme document", () => {
+    const result = parseTimelineThemeDocument({
+      schemaVersion: themeSchemaVersion,
+      tokens: getThemeTokens(timelineThemes.dark),
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects incomplete or invalid theme tokens", () => {
+    const tokens = getThemeTokens(timelineThemes.light);
+    const result = parseTimelineThemeDocument({
+      schemaVersion: themeSchemaVersion,
+      tokens: { ...tokens, laneBorder: "blue" },
+    });
+
+    expect(result.ok).toBe(false);
   });
 });
 

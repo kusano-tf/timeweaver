@@ -15,7 +15,7 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { parseDateTime } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
-import { type TimelineTheme, timelineThemes } from "../domain/theme";
+import type { TimelineTheme } from "../domain/theme";
 import {
   createTimelineRange,
   panTimelineRange,
@@ -25,6 +25,7 @@ import {
 } from "../domain/timelineRange";
 import type { Lane, TimelineItem, TimelineScale } from "../domain/types";
 import { useDebugEnabled, useDebugReporter } from "../state/DebugContext";
+import { useTheme } from "../state/ThemeContext";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -66,7 +67,7 @@ export function TimelineSvg() {
   const dispatch = useTimelineDispatch();
   const { enabled: debugEnabled } = useDebugEnabled();
   const { reportTimeline } = useDebugReporter();
-  const theme = timelineThemes[document.view.themePreset];
+  const { theme } = useTheme();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [timelineWidth, setTimelineWidth] = useState(minTimelineWidth);
@@ -536,7 +537,6 @@ export function TimelineSvg() {
       <svg
         ref={svgRef}
         data-timeline-svg="true"
-        data-timeline-theme={document.view.themePreset}
         style={{ backgroundColor: theme.timelineBackground }}
         width={width}
         height={height}

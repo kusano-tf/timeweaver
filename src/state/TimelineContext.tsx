@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { sampleTimeline } from "../data/sampleTimeline";
+import { ThemeProvider } from "./ThemeContext";
 import {
   type TimelineAction,
   type TimelineState,
@@ -34,11 +35,13 @@ export function TimelineProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(timelineReducer, initialState);
 
   return (
-    <TimelineStateContext.Provider value={state}>
-      <TimelineDispatchContext.Provider value={dispatch}>
-        {children}
-      </TimelineDispatchContext.Provider>
-    </TimelineStateContext.Provider>
+    <ThemeProvider>
+      <TimelineStateContext.Provider value={state}>
+        <TimelineDispatchContext.Provider value={dispatch}>
+          {children}
+        </TimelineDispatchContext.Provider>
+      </TimelineStateContext.Provider>
+    </ThemeProvider>
   );
 }
 

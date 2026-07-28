@@ -6,7 +6,7 @@ JSON は Timeweaver の保存形式であり、インポート / エクスポー
 
 Mermaid Gantt の `.mmd` 出力は派生形式であり、JSON の代替保存形式やインポート形式ではない。
 
-インポート時は厳格に検証し、エラーが 1 つでもあればファイル全体を読み込まない。部分読み込みや暗黙の補正は行わない。ただし、互換性のため `view.visibleRange` が欠けている場合は `null`、`view.themePreset` が欠けている場合は `"light"` として補完する。
+タイムライン JSON のインポート時は厳格に検証し、エラーが 1 つでもあればファイル全体を読み込まない。部分読み込みや暗黙の補正は行わない。ただし、互換性のため `view.visibleRange` が欠けている場合は `null` として補完する。過去の `view.themePreset` は受理するが無視し、再出力しない。
 
 ## トップレベル構造
 
@@ -206,7 +206,6 @@ to.start = from.end + lagSeconds
 ```json
 {
   "scale": "month",
-  "themePreset": "light",
   "visibleRange": null,
   "visibleTagIds": ["planning", "release"],
   "tagFilterMode": "any",
@@ -219,7 +218,6 @@ to.start = from.end + lagSeconds
 ```
 
 - `scale`: `"year"` / `"month"` / `"day"` / `"hour"`。
-- `themePreset`: タイムライン本体のテーマプリセット。`"light"` / `"dark"`。
 - `visibleRange`: 表示中の時間範囲。`null` の場合は表示対象アイテム全体を自動表示する。ズームまたはパン後は `{ "start": "...", "end": "..." }` 形式で保存する。
 - `visibleTagIds`: 表示対象タグ ID。空なら全タグ対象。
 - `tagFilterMode`: 初期版では `"any"`。
@@ -239,7 +237,7 @@ to.start = from.end + lagSeconds
 
 タグ未設定アイテムは、`visibleTagIds` が空のときだけ表示する。タグが 1 つでも選択されている場合は非表示にする。
 
-`visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null`、`themePreset` が省略されている場合は `"light"` として扱う。
+`visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null` として扱う。テーマはタイムライン JSON には含めない。
 
 ## 検証ルール
 
@@ -310,7 +308,6 @@ to.start = from.end + lagSeconds
   ],
   "view": {
     "scale": "day",
-    "themePreset": "light",
     "visibleRange": null,
     "visibleTagIds": [],
     "tagFilterMode": "any",
@@ -322,3 +319,31 @@ to.start = from.end + lagSeconds
   }
 }
 ```
+
+## テーマ JSON
+
+テーマはタイムライン JSON とは別ファイルで保存・読込する。テーマ JSON は単独で完結し、プリセット名、テーマ ID、タイムラインへの参照は持たない。
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "tokens": {
+    "timelineBackground": "#ffffff",
+    "headerBackground": "#f8fafc",
+    "laneBackground": "#f8fafc",
+    "laneBorder": "#e2e8f0",
+    "laneLabel": "#334155",
+    "tickLabel": "#475569",
+    "boundaryTickLabel": "#0f172a",
+    "dependencyLine": "#64748b",
+    "itemStroke": "#ffffff",
+    "itemLabel": "#0f172a",
+    "itemLabelOnColor": "#ffffff"
+  }
+}
+```
+
+- `schemaVersion`: テーマ形式のバージョン。現時点では `"1.0.0"`。
+- `tokens`: テーマ項目の辞書。現時点では上記 11 項目をすべて `#RRGGBB` 形式で指定する。
+
+テーマ JSON は厳格に検証し、未知の項目、不足項目、不正な色、未対応バージョンがあれば読み込まない。将来の線幅、レーン高、アイテム形状、依存線スタイルなども `tokens` に追加する。

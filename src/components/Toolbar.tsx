@@ -13,12 +13,19 @@ import { useEffect, useRef, useState } from "react";
 import { createMermaidGantt } from "../domain/mermaid";
 import { parseTimelineDocument } from "../domain/schema";
 import {
+  getThemeTokens,
+  type TimelineThemeDefinition,
   timelineThemeEntries,
   timelineThemeLabels,
   timelineThemes,
 } from "../domain/theme";
+import {
+  parseTimelineThemeDocument,
+  themeSchemaVersion,
+} from "../domain/themeSchema";
 import type { TimelineDocument } from "../domain/types";
 import { useDebugEnabled } from "../state/DebugContext";
+import { type StoredTheme, useTheme } from "../state/ThemeContext";
 import {
   useTimelineDispatch,
   useTimelineState,
@@ -27,10 +34,25 @@ import {
 export function Toolbar() {
   const { document: timelineDocument, dirty } = useTimelineState();
   const dispatch = useTimelineDispatch();
+  const {
+    theme,
+    preset: activePreset,
+    custom: activeThemeIsCustom,
+    previewTheme,
+    commitPreview,
+    discardPreview,
+    importTheme,
+  } = useTheme();
   const { enabled: debugEnabled, setEnabled: setDebugEnabled } =
     useDebugEnabled();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [themeDraft, setThemeDraft] = useState<StoredTheme | null>(null);
+  const [themeHexValues, setThemeHexValues] = useState<Record<
+    keyof TimelineThemeDefinition,
+    string
+  > | null>(null);
+  const [themeImportIssues, setThemeImportIssues] = useState<string[]>([]);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -46,7 +68,7 @@ export function Toolbar() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setExportMenuOpen(false);
-        setThemeDialogOpen(false);
+        closeThemeDialog();
       }
     }
 
@@ -56,7 +78,7 @@ export function Toolbar() {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  });
 
   async function handleImport(file: File) {
     const text = await file.text();
@@ -85,6 +107,32 @@ export function Toolbar() {
     }
   }
 
+  async function handleThemeImport(file: File) {
+    const text = await file.text();
+    try {
+      const json = JSON.parse(text);
+      const result = parseTimelineThemeDocument(json);
+      if (!result.ok) {
+        setThemeImportIssues(
+          result.issues.map((issue) => `${issue.path}: ${issue.message}`),
+        );
+        openThemeDialog();
+        return;
+      }
+
+      importTheme(result.document.tokens);
+      setThemeImportIssues([]);
+      setExportMenuOpen(false);
+    } catch (error) {
+      setThemeImportIssues([
+        error instanceof Error
+          ? error.message
+          : "テーマ JSON の解析に失敗しました。",
+      ]);
+      openThemeDialog();
+    }
+  }
+
   function exportJson() {
     downloadText(
       `${timelineDocument.timeline.title || "timeweaver"}.json`,
@@ -95,12 +143,12 @@ export function Toolbar() {
   }
 
   function handleExportPng() {
-    exportTimelinePng(timelineDocument.timeline.title);
+    exportTimelinePng(timelineDocument.timeline.title, theme);
     setExportMenuOpen(false);
   }
 
   function handleExportSvg() {
-    exportTimelineSvg(timelineDocument.timeline.title);
+    exportTimelineSvg(timelineDocument.timeline.title, theme);
     setExportMenuOpen(false);
   }
 
@@ -114,11 +162,88 @@ export function Toolbar() {
   }
 
   function openThemeDialog() {
+    setThemeDraft({
+      preset: activePreset,
+      tokens: getThemeTokens(theme),
+      custom: activeThemeIsCustom,
+    });
+    setThemeHexValues(getThemeTokens(theme));
     setThemeDialogOpen(true);
     setExportMenuOpen(false);
   }
 
-  const theme = timelineThemes[timelineDocument.view.themePreset];
+  function closeThemeDialog() {
+    discardPreview();
+    setThemeDraft(null);
+    setThemeHexValues(null);
+    setThemeDialogOpen(false);
+  }
+
+  function previewDraft(next: StoredTheme) {
+    setThemeDraft(next);
+    setThemeHexValues(next.tokens);
+    previewTheme(next);
+  }
+
+  function selectThemePreset(preset: StoredTheme["preset"]) {
+    previewDraft({
+      preset,
+      tokens: getThemeTokens(timelineThemes[preset]),
+      custom: false,
+    });
+  }
+
+  function resetThemeToken(key: keyof TimelineThemeDefinition) {
+    if (!themeDraft) {
+      return;
+    }
+    previewDraft({
+      ...themeDraft,
+      tokens: {
+        ...themeDraft.tokens,
+        [key]: getThemeTokens(timelineThemes[themeDraft.preset])[key],
+      },
+      custom: true,
+    });
+  }
+
+  function resetTheme() {
+    if (!themeDraft) {
+      return;
+    }
+    selectThemePreset(themeDraft.preset);
+  }
+
+  function saveThemeEdit() {
+    if (
+      !themeHexValues ||
+      !Object.values(themeHexValues).every((value) =>
+        /^#[0-9a-fA-F]{6}$/.test(value),
+      )
+    ) {
+      return;
+    }
+    commitPreview();
+    setThemeDraft(null);
+    setThemeHexValues(null);
+    setThemeDialogOpen(false);
+  }
+
+  function exportTheme() {
+    downloadText(
+      "timeweaver-theme.json",
+      JSON.stringify(
+        {
+          schemaVersion: themeSchemaVersion,
+          tokens: getThemeTokens(theme),
+        },
+        null,
+        2,
+      ),
+      "application/json",
+    );
+    setExportMenuOpen(false);
+  }
 
   return (
     <header className="toolbar">
@@ -191,6 +316,25 @@ export function Toolbar() {
                 <Palette aria-hidden="true" size={16} />
                 テーマ設定
               </button>
+              <label className="toolbarMenuFile">
+                <Upload aria-hidden="true" size={16} />
+                テーマを読み込む
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    if (file) {
+                      void handleThemeImport(file);
+                    }
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <button type="button" role="menuitem" onClick={exportTheme}>
+                <Download aria-hidden="true" size={16} />
+                テーマを保存
+              </button>
               <button
                 type="button"
                 role="menuitemcheckbox"
@@ -226,7 +370,7 @@ export function Toolbar() {
                 className="iconButton"
                 aria-label="テーマ設定を閉じる"
                 title="閉じる"
-                onClick={() => setThemeDialogOpen(false)}
+                onClick={closeThemeDialog}
               >
                 <X aria-hidden="true" size={16} />
               </button>
@@ -239,13 +383,11 @@ export function Toolbar() {
                     key={preset}
                     type="button"
                     className={
-                      timelineDocument.view.themePreset === preset
+                      themeDraft?.preset === preset && !themeDraft.custom
                         ? "themePresetButton active"
                         : "themePresetButton"
                     }
-                    onClick={() =>
-                      dispatch({ type: "setThemePreset", themePreset: preset })
-                    }
+                    onClick={() => selectThemePreset(preset)}
                   >
                     {timelineThemeLabels[preset]}
                   </button>
@@ -253,25 +395,106 @@ export function Toolbar() {
               </div>
             </section>
             <section className="themeDialogSection">
-              <h3>タイムライン</h3>
+              <div className="themeSectionHeading">
+                <h3>タイムライン</h3>
+                <button type="button" onClick={resetTheme}>
+                  プリセットへ戻す
+                </button>
+              </div>
+              {themeImportIssues.length > 0 && (
+                <div className="themeImportError" role="alert">
+                  <strong>テーマを読み込めませんでした</strong>
+                  <ul>
+                    {themeImportIssues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <dl className="themeTokenList">
                 {timelineThemeEntries.map((entry) => {
-                  const value = theme[entry.key];
+                  const value =
+                    themeHexValues?.[entry.key] ??
+                    themeDraft?.tokens[entry.key] ??
+                    theme[entry.key];
                   return (
                     <div key={entry.key} className="themeTokenRow">
                       <dt>{entry.label}</dt>
                       <dd>
-                        <span
-                          className="themeSwatch"
-                          style={{ background: value }}
+                        <input
+                          aria-label={`${entry.label}の色`}
+                          type="color"
+                          value={value}
+                          onChange={(event) => {
+                            if (!themeDraft) {
+                              return;
+                            }
+                            previewDraft({
+                              ...themeDraft,
+                              tokens: {
+                                ...themeDraft.tokens,
+                                [entry.key]: event.target.value,
+                              },
+                              custom: true,
+                            });
+                          }}
                         />
-                        <code>{value}</code>
+                        <input
+                          aria-label={`${entry.label}のHEX値`}
+                          className="themeHexInput"
+                          value={value}
+                          onChange={(event) => {
+                            if (!themeDraft) {
+                              return;
+                            }
+                            const next = event.target.value;
+                            setThemeHexValues((current) => ({
+                              ...(current ?? themeDraft.tokens),
+                              [entry.key]: next,
+                            }));
+                            if (!/^#[0-9a-fA-F]{6}$/.test(next)) {
+                              return;
+                            }
+                            previewDraft({
+                              ...themeDraft,
+                              tokens: {
+                                ...themeDraft.tokens,
+                                [entry.key]: next,
+                              },
+                              custom: true,
+                            });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => resetThemeToken(entry.key)}
+                        >
+                          戻す
+                        </button>
                       </dd>
                     </div>
                   );
                 })}
               </dl>
             </section>
+            <div className="themeDialogActions">
+              <button type="button" onClick={closeThemeDialog}>
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={
+                  !themeHexValues ||
+                  !Object.values(themeHexValues).every((value) =>
+                    /^#[0-9a-fA-F]{6}$/.test(value),
+                  )
+                }
+                onClick={saveThemeEdit}
+              >
+                保存
+              </button>
+            </div>
           </section>
         </div>
       )}
@@ -289,8 +512,11 @@ function downloadText(filename: string, text: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function exportTimelinePng(title: string) {
-  const serializedSvg = serializeTimelineSvg();
+function exportTimelinePng(
+  title: string,
+  theme: import("../domain/theme").TimelineTheme,
+) {
+  const serializedSvg = serializeTimelineSvg(theme);
   if (!serializedSvg) {
     return;
   }
@@ -309,8 +535,7 @@ function exportTimelinePng(title: string) {
       URL.revokeObjectURL(url);
       return;
     }
-    context.fillStyle =
-      timelineThemes[timelineDocumentFallbackTheme()].timelineBackground;
+    context.fillStyle = theme.timelineBackground;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0);
     URL.revokeObjectURL(url);
@@ -330,8 +555,11 @@ function exportTimelinePng(title: string) {
   image.src = url;
 }
 
-function exportTimelineSvg(title: string) {
-  const serializedSvg = serializeTimelineSvg();
+function exportTimelineSvg(
+  title: string,
+  theme: import("../domain/theme").TimelineTheme,
+) {
+  const serializedSvg = serializeTimelineSvg(theme);
   if (!serializedSvg) {
     return;
   }
@@ -343,7 +571,7 @@ function exportTimelineSvg(title: string) {
   );
 }
 
-function serializeTimelineSvg() {
+function serializeTimelineSvg(theme: import("../domain/theme").TimelineTheme) {
   const svg = document.querySelector<SVGSVGElement>(
     "[data-timeline-svg='true']",
   );
@@ -357,8 +585,8 @@ function serializeTimelineSvg() {
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("width", String(width));
   clone.setAttribute("height", String(height));
-  clearExportSelectionState(clone);
-  embedTimelineSvgStyles(clone);
+  clearExportSelectionState(clone, theme);
+  embedTimelineSvgStyles(clone, theme);
 
   return {
     svg: new XMLSerializer().serializeToString(clone),
@@ -367,9 +595,10 @@ function serializeTimelineSvg() {
   };
 }
 
-function clearExportSelectionState(svg: SVGSVGElement) {
-  const preset = readTimelineThemePreset(svg);
-  const theme = timelineThemes[preset];
+function clearExportSelectionState(
+  svg: SVGSVGElement,
+  theme: import("../domain/theme").TimelineTheme,
+) {
   svg
     .querySelectorAll<SVGElement>("[data-selected-stroke='true']")
     .forEach((element) => {
@@ -388,8 +617,10 @@ function clearExportSelectionState(svg: SVGSVGElement) {
     });
 }
 
-function embedTimelineSvgStyles(svg: SVGSVGElement) {
-  const theme = timelineThemes[readTimelineThemePreset(svg)];
+function embedTimelineSvgStyles(
+  svg: SVGSVGElement,
+  theme: import("../domain/theme").TimelineTheme,
+) {
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = `
     .laneLabel { fill: ${theme.laneLabel}; font-size: 14px; font-weight: 700; }
@@ -406,15 +637,4 @@ function embedTimelineSvgStyles(svg: SVGSVGElement) {
   }
 
   svg.prepend(style);
-}
-
-function readTimelineThemePreset(svg: SVGSVGElement) {
-  return svg.dataset.timelineTheme === "dark" ? "dark" : "light";
-}
-
-function timelineDocumentFallbackTheme() {
-  const svg = document.querySelector<SVGSVGElement>(
-    "[data-timeline-svg='true']",
-  );
-  return svg ? readTimelineThemePreset(svg) : "light";
 }

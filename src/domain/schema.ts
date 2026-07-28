@@ -89,7 +89,6 @@ export const timelineDocumentSchema = z.object({
   ),
   view: z.object({
     scale: z.enum(["year", "month", "day", "hour"]),
-    themePreset: z.enum(["light", "dark"]).default("light"),
     visibleRange: visibleRangeSchema,
     visibleTagIds: z.array(z.string().min(1)),
     tagFilterMode: z.literal("any"),

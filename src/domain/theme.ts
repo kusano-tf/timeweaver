@@ -1,4 +1,4 @@
-import type { TimelineThemePreset } from "./types";
+export type TimelineThemePreset = "light" | "dark";
 
 export type TimelineThemeDefinition = {
   timelineBackground: string;
@@ -70,3 +70,22 @@ export const timelineThemeEntries: {
   { key: "itemLabel", label: "アイテムラベル" },
   { key: "itemLabelOnColor", label: "バー内ラベル" },
 ];
+
+export const timelineThemeTokenKeys = timelineThemeEntries.map(
+  (entry) => entry.key,
+) as (keyof TimelineThemeDefinition)[];
+
+export function createTimelineTheme(
+  tokens: TimelineThemeDefinition,
+  preset: TimelineThemePreset = "light",
+): TimelineTheme {
+  return {
+    ...tokens,
+    uiSelectionStroke: timelineThemes[preset].uiSelectionStroke,
+  };
+}
+
+export function getThemeTokens(theme: TimelineTheme): TimelineThemeDefinition {
+  const { uiSelectionStroke: _uiSelectionStroke, ...tokens } = theme;
+  return tokens;
+}

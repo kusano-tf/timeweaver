@@ -116,7 +116,6 @@ export const sampleTimeline: TimelineDocument = {
   ],
   view: {
     scale: "day",
-    themePreset: "light",
     visibleRange: null,
     visibleTagIds: [],
     tagFilterMode: "any",
