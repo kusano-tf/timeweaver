@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { sampleTimeline } from "../data/sampleTimeline";
 import { type TimelineState, timelineReducer } from "../state/timelineReducer";
-import { fromDateTimeLocalMinute, toDateTimeLocalMinute } from "./datetime";
+import {
+  fromDateTimeLocalMinute,
+  snapDateTimeToScale,
+  toDateTimeLocalMinute,
+} from "./datetime";
 import { filterItemsByTags } from "./filtering";
 import { createMermaidGantt } from "./mermaid";
 import { parseTimelineDocument } from "./schema";
@@ -150,6 +154,32 @@ describe("datetime input formatting", () => {
   it("rejects invalid datetime-local minute values", () => {
     expect(fromDateTimeLocalMinute("2026-02-30T09:30")).toBeNull();
     expect(fromDateTimeLocalMinute("")).toBeNull();
+  });
+});
+
+describe("timeline drag snapping", () => {
+  it.each([
+    ["year", "2026-07-02T12:00:00", "2027-01-01T00:00:00"],
+    ["month", "2026-07-16T12:00:00", "2026-08-01T00:00:00"],
+    ["day", "2026-07-13T12:00:00", "2026-07-14T00:00:00"],
+    ["hour", "2026-07-13T09:30:00", "2026-07-13T10:00:00"],
+  ] as const)("snaps %s values to the closest calendar boundary", (scale, value, expected) => {
+    expect(snapDateTimeToScale(value, scale)).toBe(expected);
+  });
+
+  it("uses the later boundary at an exact midpoint", () => {
+    expect(snapDateTimeToScale("2026-07-13T12:00:00", "day")).toBe(
+      "2026-07-14T00:00:00",
+    );
+  });
+
+  it("uses actual calendar durations when snapping months", () => {
+    expect(snapDateTimeToScale("2026-02-14T12:00:00", "month")).toBe(
+      "2026-02-01T00:00:00",
+    );
+    expect(snapDateTimeToScale("2026-02-15T00:00:00", "month")).toBe(
+      "2026-03-01T00:00:00",
+    );
   });
 });
 

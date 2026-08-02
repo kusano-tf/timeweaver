@@ -12,7 +12,12 @@ import {
 } from "date-fns";
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { parseDateTime } from "../domain/datetime";
+import {
+  addSecondsToDateTime,
+  parseDateTime,
+  secondsBetween,
+  snapDateTimeToScale,
+} from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
 import type { TimelineTheme } from "../domain/theme";
@@ -311,9 +316,16 @@ export function TimelineSvg() {
       currentClientX: event.clientX,
       currentClientY: event.clientY,
     });
-    const deltaPx =
+    const rawDeltaPx =
       nextDrag.mode === "time" ? event.clientX - drag.startClientX : 0;
-    const deltaSeconds = Math.round((deltaPx / plotWidth) * (totalMs / 1000));
+    const rawDeltaSeconds = Math.round(
+      (rawDeltaPx / plotWidth) * (totalMs / 1000),
+    );
+    const deltaSeconds = snappedDragDeltaSeconds(item, rawDeltaSeconds);
+    const deltaPx =
+      nextDrag.mode === "time"
+        ? (deltaSeconds / (totalMs / 1000)) * plotWidth
+        : 0;
     const laneId =
       nextDrag.mode === "lane"
         ? (laneIdForClientY(event.clientY) ?? drag.laneId)
@@ -521,8 +533,16 @@ export function TimelineSvg() {
       return null;
     }
 
-    const deltaX =
+    const rawDeltaPx =
       activeDrag.mode === "time" ? drag.currentClientX - drag.startClientX : 0;
+    const rawDeltaSeconds = Math.round(
+      (rawDeltaPx / plotWidth) * (totalMs / 1000),
+    );
+    const deltaSeconds = snappedDragDeltaSeconds(item, rawDeltaSeconds);
+    const deltaX =
+      activeDrag.mode === "time"
+        ? (deltaSeconds / (totalMs / 1000)) * plotWidth
+        : 0;
     return renderTimelineItem({
       item,
       x: xForItemStart(item) + deltaX,
@@ -697,6 +717,19 @@ export function TimelineSvg() {
       )}
     </div>
   );
+
+  function snappedDragDeltaSeconds(
+    item: TimelineItem,
+    rawDeltaSeconds: number,
+  ) {
+    if (rawDeltaSeconds === 0) {
+      return 0;
+    }
+    const start = getItemStart(item);
+    const movedStart = addSecondsToDateTime(start, rawDeltaSeconds);
+    const snappedStart = snapDateTimeToScale(movedStart, document.view.scale);
+    return secondsBetween(start, snappedStart);
+  }
 }
 
 function createTickDebugInfo(

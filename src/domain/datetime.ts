@@ -1,12 +1,20 @@
 import {
+  addDays,
+  addHours,
+  addMonths,
   addSeconds,
+  addYears,
   differenceInSeconds,
   format,
   isValid,
   parse,
+  startOfDay,
+  startOfHour,
+  startOfMonth,
+  startOfYear,
 } from "date-fns";
 
-import type { DateTimeString } from "./types";
+import type { DateTimeString, TimelineScale } from "./types";
 
 const dateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 const dateTimeLocalMinutePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -62,6 +70,49 @@ export function secondsBetween(
   to: DateTimeString,
 ): number {
   return differenceInSeconds(parseDateTime(to), parseDateTime(from));
+}
+
+/**
+ * Snaps a local, second-precise datetime to the closest calendar boundary for
+ * a timeline scale. Exact midpoints deliberately choose the later boundary.
+ */
+export function snapDateTimeToScale(
+  value: DateTimeString,
+  scale: TimelineScale,
+): DateTimeString {
+  const date = parseDateTime(value);
+  const previous = startOfTimelineScale(scale, date);
+  const next = nextTimelineScaleBoundary(scale, previous);
+  const previousDistance = date.getTime() - previous.getTime();
+  const nextDistance = next.getTime() - date.getTime();
+
+  return formatDateTime(nextDistance <= previousDistance ? next : previous);
+}
+
+function startOfTimelineScale(scale: TimelineScale, date: Date): Date {
+  if (scale === "year") {
+    return startOfYear(date);
+  }
+  if (scale === "month") {
+    return startOfMonth(date);
+  }
+  if (scale === "day") {
+    return startOfDay(date);
+  }
+  return startOfHour(date);
+}
+
+function nextTimelineScaleBoundary(scale: TimelineScale, date: Date): Date {
+  if (scale === "year") {
+    return addYears(date, 1);
+  }
+  if (scale === "month") {
+    return addMonths(date, 1);
+  }
+  if (scale === "day") {
+    return addDays(date, 1);
+  }
+  return addHours(date, 1);
 }
 
 export function assertValidDateTime(value: string): DateTimeString {
