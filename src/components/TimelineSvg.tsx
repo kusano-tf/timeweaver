@@ -39,7 +39,7 @@ import { PropagationPrompt } from "./PropagationPrompt";
 
 const minLaneHeight = 72;
 const headerHeight = 56;
-const leftGutter = 140;
+const laneHeaderWidth = 140;
 const minTimelineWidth = 1180;
 const itemTopOffset = 20;
 const itemRowStep = 40;
@@ -110,7 +110,7 @@ export function TimelineSvg() {
   );
 
   const width = timelineWidth;
-  const plotWidth = width - leftGutter - 32;
+  const plotWidth = width - laneHeaderWidth;
   const totalMs = Math.max(1, range.end.getTime() - range.start.getTime());
   const itemById = new Map(visibleItems.map((item) => [item.id, item]));
   const itemLayout = createItemLayout(visibleItems, xForItemStart, xForItemEnd);
@@ -131,7 +131,7 @@ export function TimelineSvg() {
     drag && activeDrag?.mode === "lane"
       ? createItemLayout(previewItems, xForItemStart, xForItemEnd)
       : itemLayout;
-  const height = laneGeometry.totalHeight + 32;
+  const height = laneGeometry.totalHeight;
   const debugTickInfo = debugEnabled
     ? createTickDebugInfo(
         document.view.scale,
@@ -245,7 +245,7 @@ export function TimelineSvg() {
 
   function xForDate(date: Date) {
     return (
-      leftGutter +
+      laneHeaderWidth +
       (differenceInMilliseconds(date, range.start) / totalMs) * plotWidth
     );
   }
@@ -390,7 +390,10 @@ export function TimelineSvg() {
     }
 
     const svgX = ((clientX - rect.left) / rect.width) * width;
-    const ratio = Math.min(1, Math.max(0, (svgX - leftGutter) / plotWidth));
+    const ratio = Math.min(
+      1,
+      Math.max(0, (svgX - laneHeaderWidth) / plotWidth),
+    );
     return new Date(range.start.getTime() + totalMs * ratio);
   }
 
@@ -610,7 +613,7 @@ export function TimelineSvg() {
         <defs>
           <clipPath id="timeline-plot-clip">
             <rect
-              x={leftGutter}
+              x={laneHeaderWidth}
               y={headerHeight}
               width={plotWidth}
               height={Math.max(0, height - headerHeight)}
@@ -898,15 +901,15 @@ function TimelineTicks({
   return (
     <g>
       <rect
-        x={leftGutter}
+        x={laneHeaderWidth}
         y={0}
         width={plotWidth}
         height={headerHeight}
         fill={theme.headerBackground}
       />
       <line
-        x1={leftGutter}
-        x2={leftGutter}
+        x1={laneHeaderWidth}
+        x2={laneHeaderWidth}
         y1={0}
         y2={height}
         stroke={theme.laneBorder}

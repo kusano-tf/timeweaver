@@ -874,6 +874,7 @@ label {
 }
 
 .timelineShell svg {
+  box-sizing: content-box;
   min-width: 1180px;
   overflow: hidden;
   border: 1px solid #cbd5e1;

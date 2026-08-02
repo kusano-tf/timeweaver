@@ -241,6 +241,8 @@ to.start = from.end + lagSeconds
 
 `visibleRange` の `start` / `end` は日時と同じ `YYYY-MM-DDTHH:mm:ss` 形式とし、`end` は `start` より後でなければならない。互換性のため、インポート時に `visibleRange` が省略されている場合は `null` として扱う。テーマはタイムライン JSON には含めない。
 
+キャンバス背景、時間軸ヘッダー、レーン領域などの SVG レイアウトは保存対象ではない。テーマと表示範囲から描画時に決定する。
+
 ## 検証ルール
 
 インポート時には少なくとも次を検証する。
