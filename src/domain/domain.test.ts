@@ -30,13 +30,13 @@ function stateFor(document: TimelineDocument = sampleTimeline): TimelineState {
   };
 }
 
-describe("timeline schema", () => {
-  it("accepts the sample document", () => {
+describe("タイムラインスキーマ", () => {
+  it("サンプルドキュメントを受理する", () => {
     const result = parseTimelineDocument(sampleTimeline);
     expect(result.ok).toBe(true);
   });
 
-  it("defaults missing view fields for compatible documents", () => {
+  it("互換ドキュメントで不足した表示設定を既定値にする", () => {
     const document = structuredClone(sampleTimeline) as {
       view: Partial<TimelineDocument["view"]>;
     };
@@ -50,7 +50,7 @@ describe("timeline schema", () => {
     }
   });
 
-  it("accepts legacy themePreset but does not retain it", () => {
+  it("過去の themePreset を受理するが保持しない", () => {
     const document = structuredClone(sampleTimeline) as TimelineDocument & {
       view: TimelineDocument["view"] & { themePreset: "dark" };
     };
@@ -64,7 +64,7 @@ describe("timeline schema", () => {
     }
   });
 
-  it("rejects visibleRange whose end is not after start", () => {
+  it("終了が開始より後でない表示範囲を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     document.view.visibleRange = {
       start: "2026-07-14T00:00:00",
@@ -81,7 +81,7 @@ describe("timeline schema", () => {
     }
   });
 
-  it("rejects invalid datetime values", () => {
+  it("不正な日時を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     const item = document.items[0];
     if (item?.type !== "duration") {
@@ -93,7 +93,7 @@ describe("timeline schema", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects duration items whose end is not after start", () => {
+  it("終了が開始より後でない期間アイテムを拒否する", () => {
     const document = structuredClone(sampleTimeline);
     const item = document.items[0];
     if (item?.type !== "duration") {
@@ -105,7 +105,7 @@ describe("timeline schema", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects missing item references", () => {
+  it("存在しないアイテム参照を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     document.dependencies[0].fromId = "missing";
 
@@ -118,7 +118,7 @@ describe("timeline schema", () => {
     }
   });
 
-  it("rejects dependency cycles", () => {
+  it("循環する依存関係を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     document.dependencies.push({
       id: "dep-release-design",
@@ -138,42 +138,42 @@ describe("timeline schema", () => {
   });
 });
 
-describe("datetime input formatting", () => {
-  it("converts timeline datetimes to datetime-local minute values", () => {
+describe("日時入力の形式変換", () => {
+  it("タイムライン日時を datetime-local の分精度値へ変換する", () => {
     expect(toDateTimeLocalMinute("2026-07-13T09:30:45")).toBe(
       "2026-07-13T09:30",
     );
   });
 
-  it("converts datetime-local minute values back to timeline datetimes", () => {
+  it("datetime-local の分精度値をタイムライン日時へ変換する", () => {
     expect(fromDateTimeLocalMinute("2026-07-13T09:30")).toBe(
       "2026-07-13T09:30:00",
     );
   });
 
-  it("rejects invalid datetime-local minute values", () => {
+  it("不正な datetime-local の分精度値を拒否する", () => {
     expect(fromDateTimeLocalMinute("2026-02-30T09:30")).toBeNull();
     expect(fromDateTimeLocalMinute("")).toBeNull();
   });
 });
 
-describe("timeline drag snapping", () => {
+describe("タイムラインのドラッグスナップ", () => {
   it.each([
     ["year", "2026-07-02T12:00:00", "2027-01-01T00:00:00"],
     ["month", "2026-07-16T12:00:00", "2026-08-01T00:00:00"],
     ["day", "2026-07-13T12:00:00", "2026-07-14T00:00:00"],
     ["hour", "2026-07-13T09:30:00", "2026-07-13T10:00:00"],
-  ] as const)("snaps %s values to the closest calendar boundary", (scale, value, expected) => {
+  ] as const)("%s 表示では最も近い暦境界へスナップする", (scale, value, expected) => {
     expect(snapDateTimeToScale(value, scale)).toBe(expected);
   });
 
-  it("uses the later boundary at an exact midpoint", () => {
+  it("ちょうど中間の場合は後の境界を選ぶ", () => {
     expect(snapDateTimeToScale("2026-07-13T12:00:00", "day")).toBe(
       "2026-07-14T00:00:00",
     );
   });
 
-  it("uses actual calendar durations when snapping months", () => {
+  it("月のスナップでは実際の暦日数を使う", () => {
     expect(snapDateTimeToScale("2026-02-14T12:00:00", "month")).toBe(
       "2026-02-01T00:00:00",
     );
@@ -183,8 +183,8 @@ describe("timeline drag snapping", () => {
   });
 });
 
-describe("Mermaid Gantt export", () => {
-  it("exports all items by lane and time without dependencies or tags", () => {
+describe("Mermaid Gantt 出力", () => {
+  it("依存関係とタグを含めずに全アイテムをレーン・日時順で出力する", () => {
     const mermaid = createMermaidGantt(sampleTimeline);
 
     expect(mermaid).toBe(`gantt
@@ -205,7 +205,7 @@ describe("Mermaid Gantt export", () => {
     expect(mermaid).not.toContain("Planning");
   });
 
-  it("omits empty lanes and normalizes control characters", () => {
+  it("空レーンを省略し制御文字を正規化する", () => {
     const document = structuredClone(sampleTimeline);
     document.timeline.title = "予定\n表";
     document.lanes[0].name = "計画\nレーン";
@@ -220,7 +220,7 @@ describe("Mermaid Gantt export", () => {
     expect(mermaid).not.toContain("section 空");
   });
 
-  it("exports an empty document as a valid Gantt header", () => {
+  it("空ドキュメントを有効な Gantt ヘッダーとして出力する", () => {
     const document = structuredClone(sampleTimeline);
     document.timeline.title = "";
     document.items = [];
@@ -233,8 +233,8 @@ describe("Mermaid Gantt export", () => {
   });
 });
 
-describe("timeline range controls", () => {
-  it("zooms around the center of the visible range", () => {
+describe("タイムライン範囲の操作", () => {
+  it("表示範囲の中心を基準にズームする", () => {
     const fullRange = createTimelineRange(sampleTimeline.items, "day");
     const range = resolveVisibleRange(null, fullRange);
     const visibleRange = zoomTimelineRange({
@@ -248,7 +248,7 @@ describe("timeline range controls", () => {
     expect(visibleRange?.end).toBe("2026-07-20T12:00:00");
   });
 
-  it("pans the visible range without changing its duration", () => {
+  it("表示範囲の長さを変えずにパンする", () => {
     const fullRange = createTimelineRange(sampleTimeline.items, "day");
     const range = resolveVisibleRange(
       {
@@ -269,8 +269,8 @@ describe("timeline range controls", () => {
   });
 });
 
-describe("dependency behavior", () => {
-  it("updates timeline metadata and keeps empty titles out", () => {
+describe("依存関係の振る舞い", () => {
+  it("タイムラインメタデータを更新し空のタイトルを除外する", () => {
     const renamed = timelineReducer(stateFor(), {
       type: "updateTimelineMeta",
       title: "  新しいタイムライン  ",
@@ -289,7 +289,7 @@ describe("dependency behavior", () => {
     expect(unchanged).toBe(renamed);
   });
 
-  it("updates the visible timeline range", () => {
+  it("表示範囲を更新する", () => {
     const visibleRange = {
       start: "2026-07-13T00:00:00",
       end: "2026-07-14T00:00:00",
@@ -303,7 +303,7 @@ describe("dependency behavior", () => {
     expect(state.document.view.visibleRange).toEqual(visibleRange);
   });
 
-  it("selects a dependency and its dependent item", () => {
+  it("依存関係と依存先アイテムを選択する", () => {
     const state = timelineReducer(stateFor(), {
       type: "selectDependency",
       dependencyId: "dep-qa-release",
@@ -313,7 +313,7 @@ describe("dependency behavior", () => {
     expect(state.selectedItemId).toBe("item-release");
   });
 
-  it("clears dependency selection when selecting an item", () => {
+  it("アイテムを選択すると依存関係の選択を解除する", () => {
     const selected = timelineReducer(stateFor(), {
       type: "selectDependency",
       dependencyId: "dep-qa-release",
@@ -328,7 +328,7 @@ describe("dependency behavior", () => {
     expect(state.selectedItemId).toBe("item-design");
   });
 
-  it("moves downstream items by the same delta", () => {
+  it("後続アイテムを同じ差分だけ移動する", () => {
     const state = timelineReducer(stateFor(), {
       type: "moveItem",
       itemId: "item-design",
@@ -352,7 +352,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("recalculates incoming lag when a downstream item is manually moved", () => {
+  it("後続アイテムを手動移動すると入力側のラグを再計算する", () => {
     const state = timelineReducer(stateFor(), {
       type: "moveItem",
       itemId: "item-build",
@@ -366,7 +366,7 @@ describe("dependency behavior", () => {
     expect(dependency?.lagSeconds).toBe(140_400);
   });
 
-  it("moves the dependent item to match an edited dependency lag", () => {
+  it("編集した依存関係ラグに合わせて依存先アイテムを移動する", () => {
     const state = timelineReducer(stateFor(), {
       type: "updateDependencyLag",
       dependencyId: "dep-design-build",
@@ -400,7 +400,7 @@ describe("dependency behavior", () => {
     ).toBe(-151_200);
   });
 
-  it("allows edited dependency lag to move the dependent item backward", () => {
+  it("編集した依存関係ラグで依存先アイテムを前方へ移動できる", () => {
     const state = timelineReducer(stateFor(), {
       type: "updateDependencyLag",
       dependencyId: "dep-design-build",
@@ -434,7 +434,7 @@ describe("dependency behavior", () => {
     ).toBe(-10_800);
   });
 
-  it("prioritizes the edited dependency lag over other incoming dependencies", () => {
+  it("編集した依存関係ラグを他の入力側依存より優先する", () => {
     const document = structuredClone(sampleTimeline);
     document.items.push({
       id: "item-design-b",
@@ -481,7 +481,7 @@ describe("dependency behavior", () => {
     ).toBe(-140_400);
   });
 
-  it("moves downstream items when a predecessor end changes", () => {
+  it("先行アイテムの終了変更で後続アイテムを移動する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -516,7 +516,7 @@ describe("dependency behavior", () => {
     ).toBe(54_000);
   });
 
-  it("keeps downstream items in place when propagation is disabled", () => {
+  it("伝播を無効にした場合は後続アイテムを維持する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -537,7 +537,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("does not move downstream items when only a predecessor start changes", () => {
+  it("先行アイテムの開始のみが変わっても後続アイテムを移動しない", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -558,7 +558,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("moves downstream items by the same delta when an instant predecessor changes", () => {
+  it("時点の先行アイテム変更でも後続アイテムを同じ差分だけ移動する", () => {
     const document = structuredClone(sampleTimeline);
     const release = document.items.find((item) => item.id === "item-release");
     if (release?.type !== "instant") {
@@ -598,7 +598,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("moves downstream items backward when a predecessor end moves backward", () => {
+  it("先行アイテムの終了を前方へ移動すると後続アイテムも前方へ移動する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -619,7 +619,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("moves downstream items even when another predecessor is unchanged", () => {
+  it("別の先行アイテムが未変更でも後続アイテムを移動する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -664,7 +664,7 @@ describe("dependency behavior", () => {
     ).toBe(54_000);
   });
 
-  it("recalculates all incoming lag when a downstream item is pushed", () => {
+  it("後続アイテムを後ろへ押し出すと全入力側ラグを再計算する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -714,7 +714,7 @@ describe("dependency behavior", () => {
     ).toBe(172_800);
   });
 
-  it("moves each downstream item only once through converging dependencies", () => {
+  it("合流する依存関係でも各後続アイテムを一度だけ移動する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
     if (design?.type !== "duration") {
@@ -782,7 +782,7 @@ describe("dependency behavior", () => {
     }
   });
 
-  it("rejects dependency additions that would create a cycle", () => {
+  it("循環を作る依存関係の追加を拒否する", () => {
     const state = timelineReducer(stateFor(), {
       type: "addDependency",
       dependency: {
@@ -801,8 +801,8 @@ describe("dependency behavior", () => {
   });
 });
 
-describe("theme schema", () => {
-  it("accepts a standalone theme document", () => {
+describe("テーマスキーマ", () => {
+  it("単独のテーマドキュメントを受理する", () => {
     const result = parseTimelineThemeDocument({
       schemaVersion: themeSchemaVersion,
       tokens: getThemeTokens(timelineThemes.dark),
@@ -811,7 +811,7 @@ describe("theme schema", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("rejects incomplete or invalid theme tokens", () => {
+  it("不完全または不正なテーマトークンを拒否する", () => {
     const tokens = getThemeTokens(timelineThemes.light);
     const result = parseTimelineThemeDocument({
       schemaVersion: themeSchemaVersion,
@@ -822,8 +822,8 @@ describe("theme schema", () => {
   });
 });
 
-describe("tag filtering", () => {
-  it("uses OR filtering for selected tags", () => {
+describe("タグフィルタリング", () => {
+  it("選択タグに OR フィルタを使う", () => {
     const filtered = filterItemsByTags(sampleTimeline.items, [
       "planning",
       "release",
@@ -835,7 +835,7 @@ describe("tag filtering", () => {
     ]);
   });
 
-  it("hides untagged items while a tag filter is active", () => {
+  it("タグフィルタが有効な間はタグなしアイテムを隠す", () => {
     const items = [
       ...sampleTimeline.items,
       {
@@ -856,8 +856,8 @@ describe("tag filtering", () => {
   });
 });
 
-describe("tag and lane management", () => {
-  it("updates tag names and colors", () => {
+describe("タグとレーンの管理", () => {
+  it("タグ名と色を更新する", () => {
     const state = timelineReducer(stateFor(), {
       type: "updateTag",
       tagId: "planning",
@@ -874,7 +874,7 @@ describe("tag and lane management", () => {
     expect(state.dirty).toBe(true);
   });
 
-  it("ignores empty tag and lane names", () => {
+  it("空のタグ名とレーン名を無視する", () => {
     const tagState = timelineReducer(stateFor(), {
       type: "updateTag",
       tagId: "planning",
@@ -895,7 +895,7 @@ describe("tag and lane management", () => {
     ).toBe("計画");
   });
 
-  it("updates lane names", () => {
+  it("レーン名を更新する", () => {
     const state = timelineReducer(stateFor(), {
       type: "updateLane",
       laneId: "lane-planning",
@@ -908,7 +908,7 @@ describe("tag and lane management", () => {
     expect(state.dirty).toBe(true);
   });
 
-  it("removes deleted tags from items and the active filter", () => {
+  it("削除したタグをアイテムと有効なフィルタから除去する", () => {
     const state = timelineReducer(
       {
         ...stateFor(),
@@ -932,7 +932,7 @@ describe("tag and lane management", () => {
     ).toBe(false);
   });
 
-  it("clears colorTagId when its tag is deleted", () => {
+  it("色タグを削除した場合に colorTagId を解除する", () => {
     const document = structuredClone(sampleTimeline);
     document.items[0].colorTagId = "planning";
 
@@ -944,7 +944,7 @@ describe("tag and lane management", () => {
     expect(state.document.items[0].colorTagId).toBeNull();
   });
 
-  it("normalizes tag order after reordering tags", () => {
+  it("タグの並べ替え後に順序を正規化する", () => {
     const state = timelineReducer(stateFor(), {
       type: "reorderTags",
       tagIds: ["release", "planning", "build"],
@@ -957,7 +957,7 @@ describe("tag and lane management", () => {
     ]);
   });
 
-  it("normalizes lane order after reordering lanes", () => {
+  it("レーンの並べ替え後に順序を正規化する", () => {
     const state = timelineReducer(stateFor(), {
       type: "reorderLanes",
       laneIds: ["lane-release", "lane-planning", "lane-build"],
@@ -970,7 +970,7 @@ describe("tag and lane management", () => {
     ]);
   });
 
-  it("rejects deleting lanes that still contain items", () => {
+  it("アイテムを含むレーンの削除を拒否する", () => {
     const state = timelineReducer(stateFor(), {
       type: "deleteLane",
       laneId: "lane-planning",
@@ -982,7 +982,7 @@ describe("tag and lane management", () => {
     expect(state.importIssues[0]?.message).toContain("削除できません");
   });
 
-  it("deletes empty lanes", () => {
+  it("空のレーンを削除する", () => {
     const state = timelineReducer(
       {
         ...stateFor(),
@@ -1003,8 +1003,8 @@ describe("tag and lane management", () => {
   });
 });
 
-describe("item copy", () => {
-  it("copies the selected item with a new id and title", () => {
+describe("アイテムコピー", () => {
+  it("選択アイテムを新しい ID とタイトルでコピーする", () => {
     const state = timelineReducer(stateFor(), {
       type: "copyItem",
       itemId: "item-design",
@@ -1020,7 +1020,7 @@ describe("item copy", () => {
     expect(state.dirty).toBe(true);
   });
 
-  it("does not copy dependencies with the item", () => {
+  it("アイテムとともに依存関係はコピーしない", () => {
     const state = timelineReducer(stateFor(), {
       type: "copyItem",
       itemId: "item-design",
