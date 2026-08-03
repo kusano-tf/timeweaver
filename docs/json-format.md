@@ -15,7 +15,8 @@ Mermaid Gantt の `.mmd` 出力は派生形式であり、JSON の代替保存�
   "schemaVersion": "1.0.0",
   "timeline": {
     "title": "Example Timeline",
-    "description": "Optional description"
+    "description": "Optional description",
+    "granularity": "day"
   },
   "lanes": [],
   "tags": [],
@@ -51,19 +52,21 @@ YYYY-MM-DDTHH:mm:ss
 
 `Z`、`+09:00` などのタイムゾーン指定は付けない。
 
-タイムライン上での横ドラッグは表示粒度に応じて日時を暦境界へスナップするが、保存形式の精度は変えない。詳細パネルからは引き続き秒精度の日時を直接入力できる。
+保存値は完全な日時形式を使うが、アイテム日時は `timeline.granularity` の境界に厳密に揃える。
 
 ## `timeline`
 
 ```json
 {
   "title": "Example Timeline",
-  "description": "Optional description"
+  "description": "Optional description",
+  "granularity": "day"
 }
 ```
 
 - `title`: タイムライン名。
 - `description`: 任意の説明。
+- `granularity`: アイテム日時と依存遅延の最小単位。`year` / `month` / `day` / `hour` のいずれか。
 
 ## `lanes`
 
@@ -146,14 +149,14 @@ YYYY-MM-DDTHH:mm:ss
   "tagIds": ["planning"],
   "colorTagId": null,
   "color": null,
-  "start": "2026-07-13T09:00:00",
-  "end": "2026-07-15T18:00:00"
+  "start": "2026-07-13T00:00:00",
+  "end": "2026-07-15T00:00:00"
 }
 ```
 
-期間は `[start, end)` として扱う。
+期間は `[start, end]` として扱う。`start` と `end` はともに最小単位の開始境界であり、両端を含む。
 
-`end` は必ず `start` より後でなければならない。
+`end` は `start` 以上でなければならない。両者が同じ場合は最小単位1つの期間を表す。描画・Mermaid 出力では `end` の次の最小単位境界を排他的終端として使う。
 
 ### 時点アイテム
 
@@ -167,7 +170,7 @@ YYYY-MM-DDTHH:mm:ss
   "tagIds": ["release"],
   "colorTagId": null,
   "color": null,
-  "at": "2026-07-20T10:00:00"
+  "at": "2026-07-20T00:00:00"
 }
 ```
 
@@ -180,7 +183,7 @@ YYYY-MM-DDTHH:mm:ss
     "fromId": "item-1",
     "toId": "item-2",
     "type": "finish-to-start",
-    "lagSeconds": 86400
+    "lag": 1
   }
 ]
 ```
@@ -189,12 +192,12 @@ YYYY-MM-DDTHH:mm:ss
 - `fromId`: 先行アイテム ID。
 - `toId`: 後続アイテム ID。
 - `type`: 初期版では `"finish-to-start"` のみ。
-- `lagSeconds`: ラグ秒数。正・ゼロ・負を許可する。
+- `lag`: タイムラインの時間粒度で数えた遅延数。正・ゼロ・負を許可する。
 
 Finish-to-Start の基本式:
 
 ```text
-to.start = from.end + lagSeconds
+to.start = from.end + (lag + 1) * timeline.granularity
 ```
 
 時点アイテムを含む依存では、時点アイテムの基準日時は `at` とする。
@@ -235,7 +238,7 @@ to.start = from.end + lagSeconds
 
 開発者向けデバッグ情報オーバーレイの表示状態と診断値は JSON に含めない。ブラウザの同一タブ内だけで扱うUI状態である。
 
-アイテム日時の変更時に後続へ伝播するかどうかの選択も、一時的な操作UI状態であり JSON には保存しない。伝播・非伝播のいずれでも、変更後のアイテム日時と再計算済みの `lagSeconds` を保存する。
+アイテム日時の変更時に後続へ伝播するかどうかの選択も、一時的な操作UI状態であり JSON には保存しない。伝播・非伝播のいずれでも、変更後のアイテム日時と再計算済みの `lag` を保存する。
 
 タグ未設定アイテムは、`visibleTagIds` が空のときだけ表示する。タグが 1 つでも選択されている場合は非表示にする。
 
@@ -249,7 +252,8 @@ to.start = from.end + lagSeconds
 
 - `schemaVersion` が存在し、対応バージョンであること。
 - 日時が `YYYY-MM-DDTHH:mm:ss` 形式であること。
-- 期間アイテムの `end` が `start` より後であること。
+- 期間アイテムの `end` が `start` 以上であること。
+- すべてのアイテム日時が `timeline.granularity` の境界に揃っていること。
 - `laneId` が存在するレーンを参照していること。
 - `tagIds` が存在するタグを参照していること。
 - `colorTagId` が `null` でない場合、存在するタグかつ同じアイテムの `tagIds` に含まれるタグを参照していること。
@@ -266,7 +270,8 @@ to.start = from.end + lagSeconds
   "schemaVersion": "1.0.0",
   "timeline": {
     "title": "Timeweaver Sample",
-    "description": "初期表示用のサンプルタイムライン"
+    "description": "初期表示用のサンプルタイムライン",
+    "granularity": "day"
   },
   "lanes": [
     { "id": "lane-planning", "name": "計画", "order": 0 },
@@ -286,8 +291,8 @@ to.start = from.end + lagSeconds
       "tagIds": ["planning"],
       "colorTagId": null,
       "color": null,
-      "start": "2026-07-13T09:00:00",
-      "end": "2026-07-15T18:00:00"
+      "start": "2026-07-13T00:00:00",
+      "end": "2026-07-15T00:00:00"
     },
     {
       "id": "item-release",
@@ -298,7 +303,7 @@ to.start = from.end + lagSeconds
       "tagIds": ["release"],
       "colorTagId": null,
       "color": null,
-      "at": "2026-07-20T10:00:00"
+      "at": "2026-07-20T00:00:00"
     }
   ],
   "dependencies": [
@@ -307,7 +312,7 @@ to.start = from.end + lagSeconds
       "fromId": "item-design",
       "toId": "item-release",
       "type": "finish-to-start",
-      "lagSeconds": 405600
+      "lag": 4
     }
   ],
   "view": {

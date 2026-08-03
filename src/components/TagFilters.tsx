@@ -280,6 +280,24 @@ export function TimelineMetaSettings() {
         />
       </label>
       <label>
+        時間粒度
+        <select
+          value={document.timeline.granularity}
+          onChange={(event) =>
+            dispatch({
+              type: "setGranularity",
+              granularity: event.target
+                .value as typeof document.timeline.granularity,
+            })
+          }
+        >
+          <option value="year">年</option>
+          <option value="month">月</option>
+          <option value="day">日</option>
+          <option value="hour">時</option>
+        </select>
+      </label>
+      <label>
         説明
         <textarea
           value={document.timeline.description ?? ""}

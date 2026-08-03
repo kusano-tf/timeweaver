@@ -5,7 +5,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-
+import { formatDateTime, snapDateTimeToScale } from "../domain/datetime";
 import { filterItemsByTags } from "../domain/filtering";
 import {
   createTimelineRange,
@@ -32,7 +32,11 @@ export function TimelineControls() {
     document.items,
     document.view.visibleTagIds,
   );
-  const fullRange = createTimelineRange(tagFilteredItems, document.view.scale);
+  const fullRange = createTimelineRange(
+    tagFilteredItems,
+    document.view.scale,
+    document.timeline.granularity,
+  );
   const visibleRange = resolveVisibleRange(
     document.view.visibleRange,
     fullRange,
@@ -45,6 +49,11 @@ export function TimelineControls() {
     }
 
     const id = createId("item");
+    const at = createItemDateTime(
+      visibleRange.start,
+      visibleRange.end,
+      document.timeline.granularity,
+    );
     const item: TimelineItem = {
       id,
       type: "duration",
@@ -54,8 +63,8 @@ export function TimelineControls() {
       tagIds: [],
       colorTagId: null,
       color: null,
-      start: "2026-07-13T09:00:00",
-      end: "2026-07-14T09:00:00",
+      start: at,
+      end: at,
     };
     dispatch({ type: "addItem", item });
   }
@@ -67,6 +76,11 @@ export function TimelineControls() {
     }
 
     const id = createId("item");
+    const at = createItemDateTime(
+      visibleRange.start,
+      visibleRange.end,
+      document.timeline.granularity,
+    );
     const item: TimelineItem = {
       id,
       type: "instant",
@@ -76,7 +90,7 @@ export function TimelineControls() {
       tagIds: [],
       colorTagId: null,
       color: null,
-      at: "2026-07-13T09:00:00",
+      at,
     };
     dispatch({ type: "addItem", item });
   }
@@ -174,6 +188,15 @@ export function TimelineControls() {
       </div>
     </div>
   );
+}
+
+function createItemDateTime(
+  start: Date,
+  end: Date,
+  granularity: TimelineScale,
+) {
+  const midpoint = new Date((start.getTime() + end.getTime()) / 2);
+  return snapDateTimeToScale(formatDateTime(midpoint), granularity);
 }
 
 function createId(prefix: string) {

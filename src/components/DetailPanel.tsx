@@ -11,9 +11,9 @@ import { useEffect, useState } from "react";
 
 import {
   compareDateTime,
-  fromDateTimeLocalMinute,
-  secondsBetween,
-  toDateTimeLocalMinute,
+  fromGranularityInput,
+  timelineUnitsBetween,
+  toGranularityInput,
 } from "../domain/datetime";
 import { getItemColor } from "../domain/filtering";
 import { getItemEnd, getItemStart } from "../domain/items";
@@ -21,6 +21,7 @@ import type {
   DateTimeString,
   Dependency,
   Tag,
+  TimelineGranularity,
   TimelineItem,
 } from "../domain/types";
 import {
@@ -176,8 +177,9 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
               id={`${selected.id}-start`}
               key={`${selected.id}-start`}
               value={selected.start}
+              granularity={document.timeline.granularity}
               onCommit={(start) => {
-                if (compareDateTime(start, selected.end) < 0) {
+                if (compareDateTime(start, selected.end) <= 0) {
                   updateItem({ ...selected, start });
                   return true;
                 }
@@ -191,8 +193,9 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
               id={`${selected.id}-end`}
               key={`${selected.id}-end`}
               value={selected.end}
+              granularity={document.timeline.granularity}
               onCommit={(end) => {
-                if (compareDateTime(selected.start, end) < 0) {
+                if (compareDateTime(selected.start, end) <= 0) {
                   return requestOutputChange({ ...selected, end });
                 }
                 return false;
@@ -207,6 +210,7 @@ export function DetailPanel({ onClose }: { onClose: () => void }) {
             id={`${selected.id}-at`}
             key={`${selected.id}-at`}
             value={selected.at}
+            granularity={document.timeline.granularity}
             onCommit={(at) => requestOutputChange({ ...selected, at })}
           />
         </label>
@@ -349,24 +353,28 @@ function TagPicker({
 function DateTimeInput({
   id,
   value,
+  granularity,
   onCommit,
 }: {
   id: string;
   value: DateTimeString;
+  granularity: TimelineGranularity;
   onCommit: (value: DateTimeString) => boolean;
 }) {
-  const [inputValue, setInputValue] = useState(toDateTimeLocalMinute(value));
+  const [inputValue, setInputValue] = useState(
+    toGranularityInput(value, granularity),
+  );
 
   useEffect(() => {
-    setInputValue(toDateTimeLocalMinute(value));
-  }, [value]);
+    setInputValue(toGranularityInput(value, granularity));
+  }, [value, granularity]);
 
   function reset() {
-    setInputValue(toDateTimeLocalMinute(value));
+    setInputValue(toGranularityInput(value, granularity));
   }
 
   function commit() {
-    const next = fromDateTimeLocalMinute(inputValue);
+    const next = fromGranularityInput(inputValue, granularity);
     if (!next || (next !== value && !onCommit(next))) {
       reset();
     }
@@ -375,8 +383,17 @@ function DateTimeInput({
   return (
     <input
       id={id}
-      type="datetime-local"
-      step={60}
+      type={
+        granularity === "year"
+          ? "number"
+          : granularity === "month"
+            ? "month"
+            : granularity === "day"
+              ? "date"
+              : "datetime-local"
+      }
+      min={granularity === "year" ? "1" : undefined}
+      step={granularity === "hour" ? 3600 : 1}
       value={inputValue}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -502,7 +519,12 @@ function AddDependencyForm({ selected }: { selected: TimelineItem }) {
           fromId: from.id,
           toId: selected.id,
           type: "finish-to-start",
-          lagSeconds: secondsBetween(getItemEnd(from), getItemStart(selected)),
+          lag:
+            timelineUnitsBetween(
+              getItemEnd(from),
+              getItemStart(selected),
+              document.timeline.granularity,
+            ) - 1,
         };
         dispatch({ type: "addDependency", dependency });
         event.currentTarget.value = "";
@@ -521,22 +543,10 @@ function AddDependencyForm({ selected }: { selected: TimelineItem }) {
 function DependencyRow({ dependency }: { dependency: Dependency }) {
   const { document, selectedDependencyId } = useTimelineState();
   const dispatch = useTimelineDispatch();
-  const [draft, setDraft] = useState<LagDraft | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
   const from = document.items.find((item) => item.id === dependency.fromId);
   const to = document.items.find((item) => item.id === dependency.toId);
   const selected = dependency.id === selectedDependencyId;
-
-  function updateDraft(field: keyof Omit<LagDraft, "sign">, value: string) {
-    const parsed = Number.parseInt(value, 10);
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            [field]: Number.isFinite(parsed) ? Math.max(0, parsed) : 0,
-          }
-        : current,
-    );
-  }
 
   return (
     <>
@@ -553,15 +563,17 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
         >
           {from?.title ?? dependency.fromId}
         </button>
-        <code title={`${dependency.lagSeconds}s`}>
-          {formatLagSeconds(dependency.lagSeconds)}
+        <code
+          title={`${dependency.lag}${granularityLabel(document.timeline.granularity)}`}
+        >
+          {formatLag(dependency.lag, document.timeline.granularity)}
         </code>
         <button
           type="button"
           className="iconButton compactIconButton"
           aria-label="時間差を編集"
           title="時間差を編集"
-          onClick={() => setDraft(lagSecondsToDraft(dependency.lagSeconds))}
+          onClick={() => setDraft(String(dependency.lag))}
         >
           <Pencil aria-hidden="true" size={14} />
         </button>
@@ -577,7 +589,7 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
           <Unlink aria-hidden="true" size={14} />
         </button>
       </div>
-      {draft && (
+      {draft !== null && (
         <div className="modalBackdrop">
           <form
             className="dependencyDialog"
@@ -589,7 +601,7 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
               dispatch({
                 type: "updateDependencyLag",
                 dependencyId: dependency.id,
-                lagSeconds: draftToLagSeconds(draft),
+                lag: Number.parseInt(draft, 10) || 0,
               });
               setDraft(null);
             }}
@@ -605,53 +617,15 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
                 <dd>{to?.title ?? dependency.toId}</dd>
               </div>
             </dl>
-            <fieldset className="lagEditor">
-              <legend>時間差</legend>
-              <label>
-                符号
-                <select
-                  value={draft.sign}
-                  onChange={(event) =>
-                    setDraft({ ...draft, sign: event.target.value as LagSign })
-                  }
-                >
-                  <option value="positive">+</option>
-                  <option value="negative">-</option>
-                </select>
-              </label>
-              <label>
-                日
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={draft.days}
-                  onChange={(event) => updateDraft("days", event.target.value)}
-                />
-              </label>
-              <label>
-                時間
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={draft.hours}
-                  onChange={(event) => updateDraft("hours", event.target.value)}
-                />
-              </label>
-              <label>
-                分
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={draft.minutes}
-                  onChange={(event) =>
-                    updateDraft("minutes", event.target.value)
-                  }
-                />
-              </label>
-            </fieldset>
+            <label>
+              遅延（{granularityLabel(document.timeline.granularity)}）
+              <input
+                type="number"
+                step={1}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+            </label>
             <div className="dialogActions">
               <button type="button" onClick={() => setDraft(null)}>
                 キャンセル
@@ -667,65 +641,12 @@ function DependencyRow({ dependency }: { dependency: Dependency }) {
   );
 }
 
-type LagSign = "positive" | "negative";
-
-type LagDraft = {
-  sign: LagSign;
-  days: number;
-  hours: number;
-  minutes: number;
-};
-
-function lagSecondsToDraft(totalSeconds: number): LagDraft {
-  const roundedMinutes = Math.round(Math.abs(totalSeconds) / 60);
-  const days = Math.floor(roundedMinutes / 1_440);
-  const remainingAfterDays = roundedMinutes % 1_440;
-  const hours = Math.floor(remainingAfterDays / 60);
-  const minutes = remainingAfterDays % 60;
-
-  return {
-    sign: totalSeconds < 0 ? "negative" : "positive",
-    days,
-    hours,
-    minutes,
-  };
+function formatLag(lag: number, granularity: TimelineGranularity) {
+  return `${lag}${granularityLabel(granularity)}`;
 }
 
-function draftToLagSeconds(draft: LagDraft) {
-  const totalMinutes = draft.days * 1_440 + draft.hours * 60 + draft.minutes;
-  const sign = draft.sign === "negative" ? -1 : 1;
-  return sign * totalMinutes * 60;
-}
-
-function formatLagSeconds(totalSeconds: number) {
-  if (totalSeconds === 0) {
-    return "0h";
-  }
-
-  const sign = totalSeconds < 0 ? "-" : "";
-  let remaining = Math.abs(totalSeconds);
-  const days = Math.floor(remaining / 86_400);
-  remaining %= 86_400;
-  const hours = Math.floor(remaining / 3_600);
-  remaining %= 3_600;
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-  const parts: string[] = [];
-
-  if (days > 0) {
-    parts.push(`${days}d`);
-  }
-  if (hours > 0 || days > 0) {
-    parts.push(`${hours}h`);
-  }
-  if (minutes > 0 && days === 0) {
-    parts.push(`${minutes}m`);
-  }
-  if (seconds > 0 && days === 0 && hours === 0) {
-    parts.push(`${seconds}s`);
-  }
-
-  return `${sign}${parts.join(" ")}`;
+function granularityLabel(granularity: TimelineGranularity) {
+  return { year: "年", month: "か月", day: "日", hour: "時間" }[granularity];
 }
 
 function sortByOrder<T extends { order: number }>(values: T[]): T[] {

@@ -1,6 +1,7 @@
 export const schemaVersion = "1.0.0" as const;
 
 export type TimelineScale = "year" | "month" | "day" | "hour";
+export type TimelineGranularity = TimelineScale;
 export type ItemType = "duration" | "instant";
 export type DependencyType = "finish-to-start";
 export type DateTimeString = string;
@@ -8,6 +9,7 @@ export type DateTimeString = string;
 export type TimelineMeta = {
   title: string;
   description?: string;
+  granularity: TimelineGranularity;
 };
 
 export type Lane = {
@@ -51,7 +53,7 @@ export type Dependency = {
   fromId: string;
   toId: string;
   type: DependencyType;
-  lagSeconds: number;
+  lag: number;
 };
 
 export type TimelineView = {

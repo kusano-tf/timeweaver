@@ -77,8 +77,11 @@ export function DependencyView() {
                       <td>{from?.title ?? dependency.fromId}</td>
                       <td>{to?.title ?? dependency.toId}</td>
                       <td>
-                        <code title={`${dependency.lagSeconds}s`}>
-                          {formatLagSeconds(dependency.lagSeconds)}
+                        <code
+                          title={`${dependency.lag}${granularityLabel(document.timeline.granularity)}`}
+                        >
+                          {dependency.lag}
+                          {granularityLabel(document.timeline.granularity)}
                         </code>
                       </td>
                     </tr>
@@ -132,33 +135,6 @@ function compareOptionalItemStart(
   return compareDateTime(getItemStart(a), getItemStart(b));
 }
 
-function formatLagSeconds(totalSeconds: number) {
-  if (totalSeconds === 0) {
-    return "0h";
-  }
-
-  const sign = totalSeconds < 0 ? "-" : "";
-  let remaining = Math.abs(totalSeconds);
-  const days = Math.floor(remaining / 86_400);
-  remaining %= 86_400;
-  const hours = Math.floor(remaining / 3_600);
-  remaining %= 3_600;
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-  const parts: string[] = [];
-
-  if (days > 0) {
-    parts.push(`${days}d`);
-  }
-  if (hours > 0 || days > 0) {
-    parts.push(`${hours}h`);
-  }
-  if (minutes > 0 && days === 0) {
-    parts.push(`${minutes}m`);
-  }
-  if (seconds > 0 && days === 0 && hours === 0) {
-    parts.push(`${seconds}s`);
-  }
-
-  return `${sign}${parts.join(" ")}`;
+function granularityLabel(granularity: "year" | "month" | "day" | "hour") {
+  return { year: "年", month: "か月", day: "日", hour: "時間" }[granularity];
 }

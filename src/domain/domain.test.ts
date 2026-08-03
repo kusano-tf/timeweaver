@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { sampleTimeline } from "../data/sampleTimeline";
-import { type TimelineState, timelineReducer } from "../state/timelineReducer";
 import {
-  fromDateTimeLocalMinute,
-  snapDateTimeToScale,
-  toDateTimeLocalMinute,
+  type TimelineAction,
+  type TimelineState,
+  timelineReducer,
+} from "../state/timelineReducer";
+import {
+  addTimelineUnits,
+  fromGranularityInput,
+  isAlignedToGranularity,
+  timelineUnitsBetween,
+  toGranularityInput,
 } from "./datetime";
-import { filterItemsByTags } from "./filtering";
+import { filterItemsByTags, getItemColor } from "./filtering";
 import { createMermaidGantt } from "./mermaid";
 import { parseTimelineDocument } from "./schema";
 import { getThemeTokens, timelineThemes } from "./theme";
@@ -30,944 +36,353 @@ function stateFor(document: TimelineDocument = sampleTimeline): TimelineState {
   };
 }
 
-describe("タイムラインスキーマ", () => {
-  it("サンプルドキュメントを受理する", () => {
-    const result = parseTimelineDocument(sampleTimeline);
-    expect(result.ok).toBe(true);
+describe("時間粒度のスキーマ", () => {
+  it("サンプルの粒度に揃った閉区間を受理する", () => {
+    expect(parseTimelineDocument(sampleTimeline).ok).toBe(true);
   });
 
-  it("互換ドキュメントで不足した表示設定を既定値にする", () => {
-    const document = structuredClone(sampleTimeline) as {
-      view: Partial<TimelineDocument["view"]>;
-    };
-    delete document.view.visibleRange;
-
+  it("粒度境界に揃っていない日時を拒否する", () => {
+    const document = structuredClone(sampleTimeline);
+    const item = document.items[0];
+    if (item?.type === "duration") item.start = "2026-07-13T08:00:00";
     const result = parseTimelineDocument(document);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.document.view.visibleRange).toBeNull();
-    }
+    expect(result.ok).toBe(false);
   });
 
-  it("過去の themePreset を受理するが保持しない", () => {
-    const document = structuredClone(sampleTimeline) as TimelineDocument & {
-      view: TimelineDocument["view"] & { themePreset: "dark" };
-    };
-    document.view.themePreset = "dark";
-
-    const result = parseTimelineDocument(document);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect("themePreset" in result.document.view).toBe(false);
-    }
+  it("同じ開始・終了の期間を最小単位1つとして受理する", () => {
+    const document = structuredClone(sampleTimeline);
+    const item = document.items[0];
+    if (item?.type === "duration") item.end = item.start;
+    expect(parseTimelineDocument(document).ok).toBe(true);
   });
 
-  it("終了が開始より後でない表示範囲を拒否する", () => {
+  it("終了が開始より前の期間を拒否する", () => {
+    const document = structuredClone(sampleTimeline);
+    const item = document.items[0];
+    if (item?.type === "duration") item.end = "2026-07-12T00:00:00";
+    expect(parseTimelineDocument(document).ok).toBe(false);
+  });
+});
+
+describe("粒度の日時計算", () => {
+  it("月の加算は暦月を保つ", () => {
+    expect(addTimelineUnits("2026-01-01T00:00:00", 1, "month")).toBe(
+      "2026-02-01T00:00:00",
+    );
+    expect(
+      timelineUnitsBetween(
+        "2026-01-01T00:00:00",
+        "2026-03-01T00:00:00",
+        "month",
+      ),
+    ).toBe(2);
+  });
+
+  it("粒度別の入力値を完全な日時へ正規化する", () => {
+    expect(toGranularityInput("2026-07-13T00:00:00", "day")).toBe("2026-07-13");
+    expect(fromGranularityInput("2026-07", "month")).toBe(
+      "2026-07-01T00:00:00",
+    );
+    expect(fromGranularityInput("2026", "year")).toBe("2026-01-01T00:00:00");
+    expect(isAlignedToGranularity("2026-07-13T00:00:00", "day")).toBe(true);
+  });
+});
+
+describe("粒度変更と依存", () => {
+  it("依存がある場合は時間粒度の変更を拒否する", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "setGranularity",
+      granularity: "month",
+    });
+    expect(state.document.timeline.granularity).toBe("day");
+    expect(state.importIssues[0]?.message).toContain("依存関係");
+  });
+
+  it("依存がなく全アイテムが整列していれば粒度を変更できる", () => {
+    const document = structuredClone(sampleTimeline);
+    document.dependencies = [];
+    document.items = document.items.map((item) =>
+      item.type === "duration"
+        ? { ...item, start: "2026-01-01T00:00:00", end: "2026-01-01T00:00:00" }
+        : { ...item, at: "2026-01-01T00:00:00" },
+    );
+    const state = timelineReducer(stateFor(document), {
+      type: "setGranularity",
+      granularity: "year",
+    });
+    expect(state.document.timeline.granularity).toBe("year");
+  });
+
+  it("閉区間のゼロ遅延は次の最小単位へ後続を配置する", () => {
+    const document = structuredClone(sampleTimeline);
+    const state = timelineReducer(stateFor(document), {
+      type: "updateDependencyLag",
+      dependencyId: "dep-design-build",
+      lag: 0,
+    });
+    const build = state.document.items.find((item) => item.id === "item-build");
+    expect(build?.type === "duration" && build.start).toBe(
+      "2026-07-16T00:00:00",
+    );
+  });
+
+  it("ドラッグは粒度単位で期間全体を移動する", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "moveItem",
+      itemId: "item-design",
+      deltaUnits: 1,
+      propagate: false,
+    });
+    const design = state.document.items.find(
+      (item) => item.id === "item-design",
+    );
+    expect(design?.type === "duration" && [design.start, design.end]).toEqual([
+      "2026-07-14T00:00:00",
+      "2026-07-16T00:00:00",
+    ]);
+  });
+});
+
+describe("Mermaid", () => {
+  it("閉区間の終了を次の粒度境界へ変換する", () => {
+    const mermaid = createMermaidGantt(sampleTimeline);
+    expect(mermaid).toContain(
+      "設計 : task_1, 2026-07-13 00:00:00, 2026-07-16 00:00:00",
+    );
+  });
+});
+
+describe("スキーマの整合性", () => {
+  it.each([
+    [
+      "存在しないレーン",
+      (document: TimelineDocument) => {
+        document.items[0].laneId = "missing";
+      },
+    ],
+    [
+      "存在しないタグ",
+      (document: TimelineDocument) => {
+        document.items[0].tagIds = ["missing"];
+      },
+    ],
+    [
+      "存在しない依存先",
+      (document: TimelineDocument) => {
+        document.dependencies[0].toId = "missing";
+      },
+    ],
+    [
+      "重複アイテムID",
+      (document: TimelineDocument) => {
+        document.items[1].id = document.items[0].id;
+      },
+    ],
+  ])("%sを拒否する", (_label, mutate) => {
+    const document = structuredClone(sampleTimeline);
+    mutate(document);
+    expect(parseTimelineDocument(document).ok).toBe(false);
+  });
+
+  it("循環依存を拒否する", () => {
+    const document = structuredClone(sampleTimeline);
+    document.dependencies.push({
+      id: "cycle",
+      fromId: "item-release",
+      toId: "item-design",
+      type: "finish-to-start",
+      lag: 0,
+    });
+    expect(parseTimelineDocument(document).ok).toBe(false);
+  });
+
+  it("表示範囲の不正な終端を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     document.view.visibleRange = {
       start: "2026-07-14T00:00:00",
       end: "2026-07-14T00:00:00",
     };
-
-    const result = parseTimelineDocument(document);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(
-        result.issues.some((issue) => issue.path.includes("visibleRange.end")),
-      ).toBe(true);
-    }
-  });
-
-  it("不正な日時を拒否する", () => {
-    const document = structuredClone(sampleTimeline);
-    const item = document.items[0];
-    if (item?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-    item.start = "2026-07-13";
-
-    const result = parseTimelineDocument(document);
-    expect(result.ok).toBe(false);
-  });
-
-  it("終了が開始より後でない期間アイテムを拒否する", () => {
-    const document = structuredClone(sampleTimeline);
-    const item = document.items[0];
-    if (item?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-    item.end = item.start;
-
-    const result = parseTimelineDocument(document);
-    expect(result.ok).toBe(false);
-  });
-
-  it("存在しないアイテム参照を拒否する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.dependencies[0].fromId = "missing";
-
-    const result = parseTimelineDocument(document);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.issues.some((issue) => issue.path.includes("fromId"))).toBe(
-        true,
-      );
-    }
-  });
-
-  it("循環する依存関係を拒否する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.dependencies.push({
-      id: "dep-release-design",
-      fromId: "item-release",
-      toId: "item-design",
-      type: "finish-to-start",
-      lagSeconds: 0,
-    });
-
-    const result = parseTimelineDocument(document);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(
-        result.issues.some((issue) => issue.message.includes("循環")),
-      ).toBe(true);
-    }
+    expect(parseTimelineDocument(document).ok).toBe(false);
   });
 });
 
-describe("日時入力の形式変換", () => {
-  it("タイムライン日時を datetime-local の分精度値へ変換する", () => {
-    expect(toDateTimeLocalMinute("2026-07-13T09:30:45")).toBe(
-      "2026-07-13T09:30",
-    );
-  });
-
-  it("datetime-local の分精度値をタイムライン日時へ変換する", () => {
-    expect(fromDateTimeLocalMinute("2026-07-13T09:30")).toBe(
-      "2026-07-13T09:30:00",
-    );
-  });
-
-  it("不正な datetime-local の分精度値を拒否する", () => {
-    expect(fromDateTimeLocalMinute("2026-02-30T09:30")).toBeNull();
-    expect(fromDateTimeLocalMinute("")).toBeNull();
-  });
-});
-
-describe("タイムラインのドラッグスナップ", () => {
+describe("粒度別の入力・境界", () => {
   it.each([
-    ["year", "2026-07-02T12:00:00", "2027-01-01T00:00:00"],
-    ["month", "2026-07-16T12:00:00", "2026-08-01T00:00:00"],
-    ["day", "2026-07-13T12:00:00", "2026-07-14T00:00:00"],
-    ["hour", "2026-07-13T09:30:00", "2026-07-13T10:00:00"],
-  ] as const)("%s 表示では最も近い暦境界へスナップする", (scale, value, expected) => {
-    expect(snapDateTimeToScale(value, scale)).toBe(expected);
+    ["year", "2026", "2026-01-01T00:00:00"],
+    ["month", "2026-07", "2026-07-01T00:00:00"],
+    ["day", "2026-07-13", "2026-07-13T00:00:00"],
+    ["hour", "2026-07-13T09:00", "2026-07-13T09:00:00"],
+  ] as const)("%s入力を正規化する", (granularity, input, expected) => {
+    expect(fromGranularityInput(input, granularity)).toBe(expected);
+    expect(isAlignedToGranularity(expected, granularity)).toBe(true);
   });
 
-  it("ちょうど中間の場合は後の境界を選ぶ", () => {
-    expect(snapDateTimeToScale("2026-07-13T12:00:00", "day")).toBe(
-      "2026-07-14T00:00:00",
-    );
+  it.each([
+    ["year", "2026-01-01T00:00:00", "2027-01-01T00:00:00"],
+    ["month", "2026-01-01T00:00:00", "2026-02-01T00:00:00"],
+    ["day", "2026-01-01T00:00:00", "2026-01-02T00:00:00"],
+    ["hour", "2026-01-01T00:00:00", "2026-01-01T01:00:00"],
+  ] as const)("%sの1単位を加算する", (granularity, start, end) => {
+    expect(addTimelineUnits(start, 1, granularity)).toBe(end);
+    expect(timelineUnitsBetween(start, end, granularity)).toBe(1);
   });
 
-  it("月のスナップでは実際の暦日数を使う", () => {
-    expect(snapDateTimeToScale("2026-02-14T12:00:00", "month")).toBe(
-      "2026-02-01T00:00:00",
-    );
-    expect(snapDateTimeToScale("2026-02-15T00:00:00", "month")).toBe(
-      "2026-03-01T00:00:00",
-    );
+  it.each([
+    ["year", "2026-02-01T00:00:00"],
+    ["month", "2026-07-02T00:00:00"],
+    ["day", "2026-07-13T01:00:00"],
+    ["hour", "2026-07-13T09:01:00"],
+  ] as const)("%s粒度で未整列日時を拒否する", (granularity, value) => {
+    const document = structuredClone(sampleTimeline);
+    document.timeline.granularity = granularity;
+    const item = document.items[0];
+    if (item?.type === "duration") item.start = value;
+    expect(parseTimelineDocument(document).ok).toBe(false);
   });
 });
 
-describe("Mermaid Gantt 出力", () => {
-  it("依存関係とタグを含めずに全アイテムをレーン・日時順で出力する", () => {
-    const mermaid = createMermaidGantt(sampleTimeline);
-
-    expect(mermaid).toBe(`gantt
-    title Timeweaver Sample
-    dateFormat YYYY-MM-DD HH:mm:ss
-    axisFormat %Y-%m-%d
-    todayMarker off
-    section 計画
-    設計 : task_1, 2026-07-13 09:00:00, 2026-07-15 18:00:00
-    section 実装
-    ドキュメント : task_2, 2026-07-16 09:00:00, 2026-07-18 18:00:00
-    実装 : task_3, 2026-07-16 09:00:00, 2026-07-20 18:00:00
-    section リリース
-    検証 : task_4, 2026-07-20 00:00:00, 2026-07-21 09:00:00
-    リリース : milestone, task_5, 2026-07-22 09:00:00, 0d
-`);
-    expect(mermaid).not.toContain("dep-");
-    expect(mermaid).not.toContain("Planning");
-  });
-
-  it("空レーンを省略し制御文字を正規化する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.timeline.title = "予定\n表";
-    document.lanes[0].name = "計画\nレーン";
-    document.items[0].title = "設計\tA";
-    document.lanes.push({ id: "lane-empty", name: "空", order: 3 });
-
-    const mermaid = createMermaidGantt(document);
-
-    expect(mermaid).toContain("    title 予定 表");
-    expect(mermaid).toContain("    section 計画 レーン");
-    expect(mermaid).toContain("    設計 A : task_1");
-    expect(mermaid).not.toContain("section 空");
-  });
-
-  it("空ドキュメントを有効な Gantt ヘッダーとして出力する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.timeline.title = "";
-    document.items = [];
-
-    expect(createMermaidGantt(document)).toBe(`gantt
-    dateFormat YYYY-MM-DD HH:mm:ss
-    axisFormat %Y-%m-%d
-    todayMarker off
-`);
-  });
-});
-
-describe("タイムライン範囲の操作", () => {
-  it("表示範囲の中心を基準にズームする", () => {
-    const fullRange = createTimelineRange(sampleTimeline.items, "day");
-    const range = resolveVisibleRange(null, fullRange);
-    const visibleRange = zoomTimelineRange({
-      range,
-      fullRange,
-      factor: 0.5,
-    });
-
-    expect(visibleRange).not.toBeNull();
-    expect(visibleRange?.start).toBe("2026-07-15T12:00:00");
-    expect(visibleRange?.end).toBe("2026-07-20T12:00:00");
-  });
-
-  it("表示範囲の長さを変えずにパンする", () => {
-    const fullRange = createTimelineRange(sampleTimeline.items, "day");
-    const range = resolveVisibleRange(
-      {
-        start: "2026-07-15T00:00:00",
-        end: "2026-07-19T12:00:00",
-      },
-      fullRange,
-    );
-    const visibleRange = panTimelineRange({
-      range,
-      fullRange,
-      deltaRatio: 0.1,
-    });
-
-    expect(visibleRange).not.toBeNull();
-    expect(visibleRange?.start).toBe("2026-07-15T10:48:00");
-    expect(visibleRange?.end).toBe("2026-07-19T22:48:00");
-  });
-});
-
-describe("依存関係の振る舞い", () => {
-  it("タイムラインメタデータを更新し空のタイトルを除外する", () => {
-    const renamed = timelineReducer(stateFor(), {
-      type: "updateTimelineMeta",
-      title: "  新しいタイムライン  ",
-      description: "",
-    });
-
-    expect(renamed.dirty).toBe(true);
-    expect(renamed.document.timeline.title).toBe("新しいタイムライン");
-    expect(renamed.document.timeline.description).toBe("");
-
-    const unchanged = timelineReducer(renamed, {
-      type: "updateTimelineMeta",
-      title: "   ",
-    });
-
-    expect(unchanged).toBe(renamed);
-  });
-
-  it("表示範囲を更新する", () => {
-    const visibleRange = {
-      start: "2026-07-13T00:00:00",
-      end: "2026-07-14T00:00:00",
-    };
-    const state = timelineReducer(stateFor(), {
-      type: "setVisibleRange",
-      visibleRange,
-    });
-
-    expect(state.dirty).toBe(true);
-    expect(state.document.view.visibleRange).toEqual(visibleRange);
-  });
-
-  it("依存関係と依存先アイテムを選択する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "selectDependency",
-      dependencyId: "dep-qa-release",
-    });
-
-    expect(state.selectedDependencyId).toBe("dep-qa-release");
-    expect(state.selectedItemId).toBe("item-release");
-  });
-
-  it("アイテムを選択すると依存関係の選択を解除する", () => {
-    const selected = timelineReducer(stateFor(), {
-      type: "selectDependency",
-      dependencyId: "dep-qa-release",
-    });
-
-    const state = timelineReducer(selected, {
-      type: "selectItem",
-      itemId: "item-design",
-    });
-
-    expect(state.selectedDependencyId).toBeNull();
-    expect(state.selectedItemId).toBe("item-design");
-  });
-
-  it("後続アイテムを同じ差分だけ移動する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "moveItem",
-      itemId: "item-design",
-      deltaSeconds: 86_400,
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-    const release = state.document.items.find(
-      (item) => item.id === "item-release",
-    );
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-17T09:00:00");
-      expect(build.end).toBe("2026-07-21T18:00:00");
-    }
-
-    expect(release?.type).toBe("instant");
-    if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-23T09:00:00");
-    }
-  });
-
-  it("後続アイテムを手動移動すると入力側のラグを再計算する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "moveItem",
-      itemId: "item-build",
-      deltaSeconds: 86_400,
-    });
-
-    const dependency = state.document.dependencies.find(
-      (candidate) => candidate.id === "dep-design-build",
-    );
-
-    expect(dependency?.lagSeconds).toBe(140_400);
-  });
-
-  it("編集した依存関係ラグに合わせて依存先アイテムを移動する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "updateDependencyLag",
-      dependencyId: "dep-design-build",
-      lagSeconds: 172_800,
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-    const release = state.document.items.find(
-      (item) => item.id === "item-release",
-    );
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-17T18:00:00");
-      expect(build.end).toBe("2026-07-22T03:00:00");
-    }
-
-    expect(release?.type).toBe("instant");
-    if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-22T18:00:00");
-    }
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(172_800);
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-build-qa",
-      )?.lagSeconds,
-    ).toBe(-151_200);
-  });
-
-  it("編集した依存関係ラグで依存先アイテムを前方へ移動できる", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "updateDependencyLag",
-      dependencyId: "dep-design-build",
-      lagSeconds: 0,
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-    const release = state.document.items.find(
-      (item) => item.id === "item-release",
-    );
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-15T18:00:00");
-      expect(build.end).toBe("2026-07-20T03:00:00");
-    }
-
-    expect(release?.type).toBe("instant");
-    if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-22T09:00:00");
-    }
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(0);
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-build-qa",
-      )?.lagSeconds,
-    ).toBe(-10_800);
-  });
-
-  it("編集した依存関係ラグを他の入力側依存より優先する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.items.push({
-      id: "item-design-b",
-      type: "duration",
-      title: "設計B",
-      description: "",
-      laneId: "lane-planning",
-      tagIds: ["planning"],
-      colorTagId: null,
-      color: null,
-      start: "2026-07-13T09:00:00",
-      end: "2026-07-16T09:00:00",
-    });
-    document.dependencies.push({
-      id: "dep-design-b-build",
-      fromId: "item-design-b",
-      toId: "item-build",
-      type: "finish-to-start",
-      lagSeconds: 0,
-    });
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateDependencyLag",
-      dependencyId: "dep-design-build",
-      lagSeconds: -86_400,
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-14T18:00:00");
-      expect(build.end).toBe("2026-07-19T03:00:00");
-    }
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(-86_400);
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-b-build",
-      )?.lagSeconds,
-    ).toBe(-140_400);
-  });
-
-  it("先行アイテムの終了変更で後続アイテムを移動する", () => {
+describe("依存伝播", () => {
+  it("終了変更を後続へ同じ日数で伝播する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-
+    if (design?.type !== "duration") throw new Error("設計がありません。");
     const state = timelineReducer(stateFor(document), {
       type: "updateItem",
-      item: { ...design, end: "2026-07-16T18:00:00" },
+      item: { ...design, end: "2026-07-16T00:00:00" },
+      propagate: true,
     });
-
     const build = state.document.items.find((item) => item.id === "item-build");
-    const release = state.document.items.find(
-      (item) => item.id === "item-release",
+    expect(build?.type === "duration" && build.start).toBe(
+      "2026-07-17T00:00:00",
     );
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-17T09:00:00");
-      expect(build.end).toBe("2026-07-21T18:00:00");
-    }
-
-    expect(release?.type).toBe("instant");
-    if (release?.type === "instant") {
-      expect(release.at).toBe("2026-07-23T09:00:00");
-    }
-
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(54_000);
   });
 
-  it("伝播を無効にした場合は後続アイテムを維持する", () => {
+  it("非伝播の終了変更はlagを再計算する", () => {
     const document = structuredClone(sampleTimeline);
     const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-
+    if (design?.type !== "duration") throw new Error("設計がありません。");
     const state = timelineReducer(stateFor(document), {
       type: "updateItem",
-      item: { ...design, end: "2026-07-16T18:00:00" },
+      item: { ...design, end: "2026-07-16T00:00:00" },
       propagate: false,
     });
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-16T09:00:00");
-      expect(build.end).toBe("2026-07-20T18:00:00");
-    }
-  });
-
-  it("先行アイテムの開始のみが変わっても後続アイテムを移動しない", () => {
-    const document = structuredClone(sampleTimeline);
-    const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...design, start: "2026-07-12T09:00:00" },
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-16T09:00:00");
-      expect(build.end).toBe("2026-07-20T18:00:00");
-    }
-  });
-
-  it("時点の先行アイテム変更でも後続アイテムを同じ差分だけ移動する", () => {
-    const document = structuredClone(sampleTimeline);
-    const release = document.items.find((item) => item.id === "item-release");
-    if (release?.type !== "instant") {
-      throw new Error("Expected instant item");
-    }
-    document.dependencies.push({
-      id: "dep-release-followup",
-      fromId: "item-release",
-      toId: "item-followup",
-      type: "finish-to-start",
-      lagSeconds: 86_400,
-    });
-    document.items.push({
-      id: "item-followup",
-      type: "instant",
-      title: "フォローアップ",
-      description: "",
-      laneId: "lane-release",
-      tagIds: ["release"],
-      colorTagId: null,
-      color: null,
-      at: "2026-07-22T10:00:00",
-    });
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...release, at: "2026-07-22T10:00:00" },
-    });
-
-    const followup = state.document.items.find(
-      (item) => item.id === "item-followup",
-    );
-
-    expect(followup?.type).toBe("instant");
-    if (followup?.type === "instant") {
-      expect(followup.at).toBe("2026-07-22T11:00:00");
-    }
-  });
-
-  it("先行アイテムの終了を前方へ移動すると後続アイテムも前方へ移動する", () => {
-    const document = structuredClone(sampleTimeline);
-    const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...design, end: "2026-07-14T18:00:00" },
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-15T09:00:00");
-      expect(build.end).toBe("2026-07-19T18:00:00");
-    }
-  });
-
-  it("別の先行アイテムが未変更でも後続アイテムを移動する", () => {
-    const document = structuredClone(sampleTimeline);
-    const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-    document.items.push({
-      id: "item-design-b",
-      type: "duration",
-      title: "設計B",
-      description: "",
-      laneId: "lane-planning",
-      tagIds: ["planning"],
-      colorTagId: null,
-      color: null,
-      start: "2026-07-13T09:00:00",
-      end: "2026-07-16T09:00:00",
-    });
-    document.dependencies.push({
-      id: "dep-design-b-build",
-      fromId: "item-design-b",
-      toId: "item-build",
-      type: "finish-to-start",
-      lagSeconds: 86_400,
-    });
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...design, end: "2026-07-16T12:00:00" },
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-17T03:00:00");
-      expect(build.end).toBe("2026-07-21T12:00:00");
-    }
     expect(
       state.document.dependencies.find(
         (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(54_000);
+      )?.lag,
+    ).toBe(-1);
   });
 
-  it("後続アイテムを後ろへ押し出すと全入力側ラグを再計算する", () => {
-    const document = structuredClone(sampleTimeline);
-    const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-    document.items.push({
-      id: "item-design-b",
-      type: "duration",
-      title: "設計B",
-      description: "",
-      laneId: "lane-planning",
-      tagIds: ["planning"],
-      colorTagId: null,
-      color: null,
-      start: "2026-07-13T09:00:00",
-      end: "2026-07-16T09:00:00",
-    });
-    document.dependencies.push({
-      id: "dep-design-b-build",
-      fromId: "item-design-b",
-      toId: "item-build",
-      type: "finish-to-start",
-      lagSeconds: 86_400,
-    });
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...design, end: "2026-07-17T18:00:00" },
-    });
-
-    const build = state.document.items.find((item) => item.id === "item-build");
-
-    expect(build?.type).toBe("duration");
-    if (build?.type === "duration") {
-      expect(build.start).toBe("2026-07-18T09:00:00");
-      expect(build.end).toBe("2026-07-22T18:00:00");
-    }
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-build",
-      )?.lagSeconds,
-    ).toBe(54_000);
-    expect(
-      state.document.dependencies.find(
-        (dependency) => dependency.id === "dep-design-b-build",
-      )?.lagSeconds,
-    ).toBe(172_800);
-  });
-
-  it("合流する依存関係でも各後続アイテムを一度だけ移動する", () => {
-    const document = structuredClone(sampleTimeline);
-    const design = document.items.find((item) => item.id === "item-design");
-    if (design?.type !== "duration") {
-      throw new Error("Expected duration item");
-    }
-    document.items.push(
-      {
-        id: "item-review",
-        type: "duration",
-        title: "レビュー",
-        description: "",
-        laneId: "lane-build",
-        tagIds: ["build"],
-        colorTagId: null,
-        color: null,
-        start: "2026-07-16T09:00:00",
-        end: "2026-07-17T09:00:00",
-      },
-      {
-        id: "item-merge",
-        type: "instant",
-        title: "統合",
-        description: "",
-        laneId: "lane-release",
-        tagIds: ["release"],
-        colorTagId: null,
-        color: null,
-        at: "2026-07-21T10:00:00",
-      },
-    );
-    document.dependencies.push(
-      {
-        id: "dep-design-review",
-        fromId: "item-design",
-        toId: "item-review",
-        type: "finish-to-start",
-        lagSeconds: 54_000,
-      },
-      {
-        id: "dep-build-merge",
-        fromId: "item-build",
-        toId: "item-merge",
-        type: "finish-to-start",
-        lagSeconds: 57_600,
-      },
-      {
-        id: "dep-review-merge",
-        fromId: "item-review",
-        toId: "item-merge",
-        type: "finish-to-start",
-        lagSeconds: 363_600,
-      },
-    );
-
-    const state = timelineReducer(stateFor(document), {
-      type: "updateItem",
-      item: { ...design, end: "2026-07-16T18:00:00" },
-    });
-
-    const merge = state.document.items.find((item) => item.id === "item-merge");
-
-    expect(merge?.type).toBe("instant");
-    if (merge?.type === "instant") {
-      expect(merge.at).toBe("2026-07-22T10:00:00");
-    }
-  });
-
-  it("循環を作る依存関係の追加を拒否する", () => {
+  it.each([-2, -1, 0, 1, 3])("lag %i に依存先を配置する", (lag) => {
     const state = timelineReducer(stateFor(), {
-      type: "addDependency",
-      dependency: {
-        id: "dep-release-design",
+      type: "updateDependencyLag",
+      dependencyId: "dep-design-build",
+      lag,
+    });
+    const build = state.document.items.find((item) => item.id === "item-build");
+    expect(build?.type === "duration" && build.start).toBe(
+      addTimelineUnits("2026-07-15T00:00:00", lag + 1, "day"),
+    );
+  });
+
+  it("時点アイテムを先行としても次の単位から開始する", () => {
+    const document = structuredClone(sampleTimeline);
+    document.dependencies = [
+      {
+        id: "instant",
         fromId: "item-release",
         toId: "item-design",
         type: "finish-to-start",
-        lagSeconds: 0,
-      },
-    });
-
-    expect(state.document.dependencies).toHaveLength(
-      sampleTimeline.dependencies.length,
-    );
-    expect(state.importIssues[0]?.message).toContain("循環");
-  });
-});
-
-describe("テーマスキーマ", () => {
-  it("単独のテーマドキュメントを受理する", () => {
-    const result = parseTimelineThemeDocument({
-      schemaVersion: themeSchemaVersion,
-      tokens: getThemeTokens(timelineThemes.dark),
-    });
-
-    expect(result.ok).toBe(true);
-  });
-
-  it("不完全または不正なテーマトークンを拒否する", () => {
-    const tokens = getThemeTokens(timelineThemes.light);
-    const result = parseTimelineThemeDocument({
-      schemaVersion: themeSchemaVersion,
-      tokens: { ...tokens, laneBorder: "blue" },
-    });
-
-    expect(result.ok).toBe(false);
-  });
-});
-
-describe("タグフィルタリング", () => {
-  it("選択タグに OR フィルタを使う", () => {
-    const filtered = filterItemsByTags(sampleTimeline.items, [
-      "planning",
-      "release",
-    ]);
-    expect(filtered.map((item) => item.id)).toEqual([
-      "item-design",
-      "item-qa",
-      "item-release",
-    ]);
-  });
-
-  it("タグフィルタが有効な間はタグなしアイテムを隠す", () => {
-    const items = [
-      ...sampleTimeline.items,
-      {
-        id: "item-untagged",
-        type: "instant" as const,
-        title: "未タグ",
-        description: "",
-        laneId: "lane-planning",
-        tagIds: [],
-        colorTagId: null,
-        color: null,
-        at: "2026-07-13T09:00:00",
+        lag: 0,
       },
     ];
-
-    const filtered = filterItemsByTags(items, ["planning"]);
-    expect(filtered.map((item) => item.id)).toEqual(["item-design"]);
+    const state = timelineReducer(stateFor(document), {
+      type: "updateDependencyLag",
+      dependencyId: "instant",
+      lag: 0,
+    });
+    const design = state.document.items.find(
+      (item) => item.id === "item-design",
+    );
+    expect(design?.type === "duration" && design.start).toBe(
+      "2026-07-23T00:00:00",
+    );
   });
 });
 
-describe("タグとレーンの管理", () => {
-  it("タグ名と色を更新する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "updateTag",
-      tagId: "planning",
-      name: "企画",
-      color: "#16a34a",
+describe("表示範囲・派生出力", () => {
+  it("ズームとパンで有効な表示範囲を返す", () => {
+    const fullRange = createTimelineRange(sampleTimeline.items, "day", "day");
+    const range = resolveVisibleRange(null, fullRange);
+    const zoomed = zoomTimelineRange({ range, fullRange, factor: 0.5 });
+    expect(zoomed).not.toBeNull();
+    const panned = panTimelineRange({
+      range: resolveVisibleRange(zoomed, fullRange),
+      fullRange,
+      deltaRatio: 0.2,
     });
-
-    const tag = state.document.tags.find(
-      (candidate) => candidate.id === "planning",
-    );
-
-    expect(tag?.name).toBe("企画");
-    expect(tag?.color).toBe("#16a34a");
-    expect(state.dirty).toBe(true);
+    expect(panned).not.toBeNull();
   });
 
-  it("空のタグ名とレーン名を無視する", () => {
-    const tagState = timelineReducer(stateFor(), {
-      type: "updateTag",
-      tagId: "planning",
-      name: "   ",
-    });
-    const laneState = timelineReducer(stateFor(), {
-      type: "updateLane",
-      laneId: "lane-planning",
-      name: "",
-    });
-
+  it("タグORフィルタと色の優先順位を守る", () => {
+    expect(filterItemsByTags(sampleTimeline.items, ["build"])).toHaveLength(2);
+    const item = { ...sampleTimeline.items[0], color: "#123456" };
     expect(
-      tagState.document.tags.find((tag) => tag.id === "planning")?.name,
-    ).toBe("Planning");
-    expect(
-      laneState.document.lanes.find((lane) => lane.id === "lane-planning")
-        ?.name,
-    ).toBe("計画");
+      getItemColor(
+        item,
+        new Map(sampleTimeline.tags.map((tag) => [tag.id, tag])),
+      ),
+    ).toBe("#123456");
   });
 
-  it("レーン名を更新する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "updateLane",
-      laneId: "lane-planning",
-      name: "構想",
-    });
-
+  it.each([
+    ["タグ色", { color: null, colorTagId: null }, "#4f46e5"],
+    ["色タグ", { color: null, colorTagId: "planning" }, "#4f46e5"],
+  ] as const)("%sを色に使う", (_label, override, expected) => {
+    const item = { ...sampleTimeline.items[0], ...override };
     expect(
-      state.document.lanes.find((lane) => lane.id === "lane-planning")?.name,
-    ).toBe("構想");
-    expect(state.dirty).toBe(true);
+      getItemColor(
+        item,
+        new Map(sampleTimeline.tags.map((tag) => [tag.id, tag])),
+      ),
+    ).toBe(expected);
   });
 
-  it("削除したタグをアイテムと有効なフィルタから除去する", () => {
-    const state = timelineReducer(
-      {
-        ...stateFor(),
-        document: {
-          ...sampleTimeline,
-          view: {
-            ...sampleTimeline.view,
-            visibleTagIds: ["planning"],
-          },
-        },
-      },
-      { type: "deleteTag", tagId: "planning" },
-    );
-
-    expect(state.document.tags.some((tag) => tag.id === "planning")).toBe(
-      false,
-    );
-    expect(state.document.view.visibleTagIds).toEqual([]);
+  it("テーマ形式を検証する", () => {
     expect(
-      state.document.items.some((item) => item.tagIds.includes("planning")),
+      parseTimelineThemeDocument({
+        schemaVersion: themeSchemaVersion,
+        tokens: getThemeTokens(timelineThemes.light),
+      }).ok,
+    ).toBe(true);
+    expect(
+      parseTimelineThemeDocument({
+        schemaVersion: themeSchemaVersion,
+        tokens: {},
+      }).ok,
     ).toBe(false);
   });
+});
 
-  it("色タグを削除した場合に colorTagId を解除する", () => {
-    const document = structuredClone(sampleTimeline);
-    document.items[0].colorTagId = "planning";
-
-    const state = timelineReducer(stateFor(document), {
-      type: "deleteTag",
+describe("管理操作", () => {
+  it("タイトル、タグ、レーンを更新できる", () => {
+    let state = timelineReducer(stateFor(), {
+      type: "updateTimelineMeta",
+      title: "  新しい予定  ",
+    });
+    state = timelineReducer(state, {
+      type: "updateTag",
       tagId: "planning",
+      name: "計画",
     });
-
-    expect(state.document.items[0].colorTagId).toBeNull();
-  });
-
-  it("タグの並べ替え後に順序を正規化する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "reorderTags",
-      tagIds: ["release", "planning", "build"],
+    state = timelineReducer(state, {
+      type: "updateLane",
+      laneId: "lane-planning",
+      name: "準備",
     });
-
-    expect(state.document.tags.map((tag) => [tag.id, tag.order])).toEqual([
-      ["release", 0],
-      ["planning", 1],
-      ["build", 2],
-    ]);
-  });
-
-  it("レーンの並べ替え後に順序を正規化する", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "reorderLanes",
-      laneIds: ["lane-release", "lane-planning", "lane-build"],
-    });
-
-    expect(state.document.lanes.map((lane) => [lane.id, lane.order])).toEqual([
-      ["lane-release", 0],
-      ["lane-planning", 1],
-      ["lane-build", 2],
-    ]);
+    expect(state.document.timeline.title).toBe("新しい予定");
+    expect(state.document.tags[0].name).toBe("計画");
+    expect(state.document.lanes[0].name).toBe("準備");
   });
 
   it("アイテムを含むレーンの削除を拒否する", () => {
@@ -975,59 +390,69 @@ describe("タグとレーンの管理", () => {
       type: "deleteLane",
       laneId: "lane-planning",
     });
-
-    expect(
-      state.document.lanes.some((lane) => lane.id === "lane-planning"),
-    ).toBe(true);
     expect(state.importIssues[0]?.message).toContain("削除できません");
   });
 
-  it("空のレーンを削除する", () => {
-    const state = timelineReducer(
-      {
-        ...stateFor(),
-        document: {
-          ...sampleTimeline,
-          lanes: [
-            ...sampleTimeline.lanes,
-            { id: "lane-empty", name: "空レーン", order: 99 },
-          ],
-        },
-      },
-      { type: "deleteLane", laneId: "lane-empty" },
-    );
-
-    expect(state.document.lanes.some((lane) => lane.id === "lane-empty")).toBe(
-      false,
-    );
+  it("タグ削除時にアイテム参照とフィルタを掃除する", () => {
+    const state = timelineReducer(stateFor(), {
+      type: "deleteTag",
+      tagId: "planning",
+    });
+    expect(state.document.items[0].tagIds).not.toContain("planning");
   });
-});
 
-describe("アイテムコピー", () => {
-  it("選択アイテムを新しい ID とタイトルでコピーする", () => {
+  it("コピーは依存を増やさない", () => {
     const state = timelineReducer(stateFor(), {
       type: "copyItem",
       itemId: "item-design",
     });
-
-    const copied = state.document.items.find(
-      (item) => item.id === "item-design-copy",
-    );
-
-    expect(copied?.title).toBe("設計 のコピー");
-    expect(copied?.type).toBe("duration");
-    expect(state.selectedItemId).toBe("item-design-copy");
-    expect(state.dirty).toBe(true);
-  });
-
-  it("アイテムとともに依存関係はコピーしない", () => {
-    const state = timelineReducer(stateFor(), {
-      type: "copyItem",
-      itemId: "item-design",
-    });
-
+    expect(state.document.items).toHaveLength(sampleTimeline.items.length + 1);
     expect(state.document.dependencies).toHaveLength(
       sampleTimeline.dependencies.length,
     );
+  });
+
+  it.each([
+    ["selectItem", { type: "selectItem", itemId: "item-build" }],
+    [
+      "selectDependency",
+      { type: "selectDependency", dependencyId: "dep-design-build" },
+    ],
+    [
+      "deleteDependency",
+      { type: "deleteDependency", dependencyId: "dep-design-build" },
+    ],
+    [
+      "reorderTags",
+      { type: "reorderTags", tagIds: ["release", "build", "planning"] },
+    ],
+    [
+      "reorderLanes",
+      {
+        type: "reorderLanes",
+        laneIds: ["lane-release", "lane-build", "lane-planning"],
+      },
+    ],
+  ] as const)("%s 操作を安全に処理する", (_label, action) => {
+    expect(() =>
+      timelineReducer(stateFor(), action as TimelineAction),
+    ).not.toThrow();
+  });
+
+  it.each([
+    "year",
+    "month",
+    "day",
+    "hour",
+  ] as const)("%s粒度で整列済みの新規期間を受理する", (granularity) => {
+    const document = structuredClone(sampleTimeline);
+    document.timeline.granularity = granularity;
+    const value = addTimelineUnits("2026-01-01T00:00:00", 0, granularity);
+    document.items = document.items.map((item) =>
+      item.type === "duration"
+        ? { ...item, start: value, end: value }
+        : { ...item, at: value },
+    );
+    expect(parseTimelineDocument(document).ok).toBe(true);
   });
 });

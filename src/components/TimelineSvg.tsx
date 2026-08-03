@@ -13,13 +13,13 @@ import {
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  addSecondsToDateTime,
+  addTimelineUnits,
   parseDateTime,
-  secondsBetween,
   snapDateTimeToScale,
+  timelineUnitsBetween,
 } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
-import { getItemEnd, getItemStart } from "../domain/items";
+import { getItemExclusiveEnd, getItemStart } from "../domain/items";
 import type { TimelineTheme } from "../domain/theme";
 import {
   createTimelineRange,
@@ -62,7 +62,7 @@ type DragState = {
 
 type PendingMove = {
   itemId: string;
-  deltaSeconds: number;
+  deltaUnits: number;
   deltaPx: number;
   descendantCount: number;
 };
@@ -92,16 +92,26 @@ export function TimelineSvg() {
     [document.lanes],
   );
   const fullRange = useMemo(
-    () => createTimelineRange(tagFilteredItems, document.view.scale),
-    [tagFilteredItems, document.view.scale],
+    () =>
+      createTimelineRange(
+        tagFilteredItems,
+        document.view.scale,
+        document.timeline.granularity,
+      ),
+    [tagFilteredItems, document.view.scale, document.timeline.granularity],
   );
   const range = useMemo(
     () => resolveVisibleRange(document.view.visibleRange, fullRange),
     [document.view.visibleRange, fullRange],
   );
   const visibleItems = useMemo(
-    () => filterItemsByRange(tagFilteredItems, range),
-    [tagFilteredItems, range],
+    () =>
+      filterItemsByRange(
+        tagFilteredItems,
+        range,
+        document.timeline.granularity,
+      ),
+    [tagFilteredItems, range, document.timeline.granularity],
   );
   const itemIds = new Set(visibleItems.map((item) => item.id));
   const visibleDependencies = document.dependencies.filter(
@@ -255,7 +265,9 @@ export function TimelineSvg() {
   }
 
   function xForItemEnd(item: TimelineItem) {
-    return xForDate(parseDateTime(getItemEnd(item)));
+    return xForDate(
+      parseDateTime(getItemExclusiveEnd(item, document.timeline.granularity)),
+    );
   }
 
   function yForLane(laneId: string) {
@@ -321,10 +333,18 @@ export function TimelineSvg() {
     const rawDeltaSeconds = Math.round(
       (rawDeltaPx / plotWidth) * (totalMs / 1000),
     );
-    const deltaSeconds = snappedDragDeltaSeconds(item, rawDeltaSeconds);
+    const deltaUnits = snappedDragDeltaUnits(item, rawDeltaSeconds);
     const deltaPx =
       nextDrag.mode === "time"
-        ? (deltaSeconds / (totalMs / 1000)) * plotWidth
+        ? xForDate(
+            parseDateTime(
+              addTimelineUnits(
+                getItemStart(item),
+                deltaUnits,
+                document.timeline.granularity,
+              ),
+            ),
+          ) - xForItemStart(item)
         : 0;
     const laneId =
       nextDrag.mode === "lane"
@@ -332,18 +352,18 @@ export function TimelineSvg() {
         : drag.laneId;
 
     const descendantCount = countDescendants(item.id, document.dependencies);
-    if (nextDrag.mode === "time" && deltaSeconds !== 0 && descendantCount > 0) {
+    if (nextDrag.mode === "time" && deltaUnits !== 0 && descendantCount > 0) {
       setPendingMove({
         itemId: item.id,
-        deltaSeconds,
+        deltaUnits,
         deltaPx,
         descendantCount,
       });
-    } else if (deltaSeconds !== 0 || laneId !== drag.laneId) {
+    } else if (deltaUnits !== 0 || laneId !== drag.laneId) {
       dispatch({
         type: "moveItem",
         itemId: item.id,
-        deltaSeconds,
+        deltaUnits,
         laneId,
         propagate: nextDrag.mode === "time",
       });
@@ -541,10 +561,18 @@ export function TimelineSvg() {
     const rawDeltaSeconds = Math.round(
       (rawDeltaPx / plotWidth) * (totalMs / 1000),
     );
-    const deltaSeconds = snappedDragDeltaSeconds(item, rawDeltaSeconds);
+    const deltaUnits = snappedDragDeltaUnits(item, rawDeltaSeconds);
     const deltaX =
       activeDrag.mode === "time"
-        ? (deltaSeconds / (totalMs / 1000)) * plotWidth
+        ? xForDate(
+            parseDateTime(
+              addTimelineUnits(
+                getItemStart(item),
+                deltaUnits,
+                document.timeline.granularity,
+              ),
+            ),
+          ) - xForItemStart(item)
         : 0;
     return renderTimelineItem({
       item,
@@ -701,7 +729,7 @@ export function TimelineSvg() {
             dispatch({
               type: "moveItem",
               itemId: pendingMove.itemId,
-              deltaSeconds: pendingMove.deltaSeconds,
+              deltaUnits: pendingMove.deltaUnits,
               propagate: true,
             });
             setPendingMove(null);
@@ -710,7 +738,7 @@ export function TimelineSvg() {
             dispatch({
               type: "moveItem",
               itemId: pendingMove.itemId,
-              deltaSeconds: pendingMove.deltaSeconds,
+              deltaUnits: pendingMove.deltaUnits,
               propagate: false,
             });
             setPendingMove(null);
@@ -721,17 +749,23 @@ export function TimelineSvg() {
     </div>
   );
 
-  function snappedDragDeltaSeconds(
-    item: TimelineItem,
-    rawDeltaSeconds: number,
-  ) {
+  function snappedDragDeltaUnits(item: TimelineItem, rawDeltaSeconds: number) {
     if (rawDeltaSeconds === 0) {
       return 0;
     }
     const start = getItemStart(item);
-    const movedStart = addSecondsToDateTime(start, rawDeltaSeconds);
-    const snappedStart = snapDateTimeToScale(movedStart, document.view.scale);
-    return secondsBetween(start, snappedStart);
+    const movedStart = new Date(
+      parseDateTime(start).getTime() + rawDeltaSeconds * 1000,
+    );
+    const snappedStart = snapDateTimeToScale(
+      `${format(movedStart, "yyyy-MM-dd'T'HH:mm:ss")}`,
+      document.timeline.granularity,
+    );
+    return timelineUnitsBetween(
+      start,
+      snappedStart,
+      document.timeline.granularity,
+    );
   }
 }
 
@@ -1012,13 +1046,18 @@ function startOfScale(scale: TimelineScale, date: Date, interval = 1) {
 function filterItemsByRange(
   items: TimelineItem[],
   range: TimelineDateRange,
+  granularity: TimelineScale,
 ): TimelineItem[] {
-  return items.filter((item) => itemOverlapsRange(item, range));
+  return items.filter((item) => itemOverlapsRange(item, range, granularity));
 }
 
-function itemOverlapsRange(item: TimelineItem, range: TimelineDateRange) {
+function itemOverlapsRange(
+  item: TimelineItem,
+  range: TimelineDateRange,
+  granularity: TimelineScale,
+) {
   const start = parseDateTime(getItemStart(item)).getTime();
-  const end = parseDateTime(getItemEnd(item)).getTime();
+  const end = parseDateTime(getItemExclusiveEnd(item, granularity)).getTime();
   const rangeStart = range.start.getTime();
   const rangeEnd = range.end.getTime();
 

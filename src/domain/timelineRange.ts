@@ -11,9 +11,10 @@ import {
 } from "date-fns";
 
 import { formatDateTime, parseDateTime } from "./datetime";
-import { getItemEnd, getItemStart } from "./items";
+import { getItemExclusiveEnd, getItemStart } from "./items";
 import type {
   DateTimeString,
+  TimelineGranularity,
   TimelineItem,
   TimelineScale,
   TimelineView,
@@ -30,6 +31,7 @@ export type TimelineDateRange = {
 export function createTimelineRange(
   items: TimelineItem[],
   scale: TimelineScale,
+  granularity: TimelineGranularity = scale,
 ): TimelineDateRange {
   if (items.length === 0) {
     const start = startOfDay(new Date());
@@ -37,7 +39,9 @@ export function createTimelineRange(
   }
 
   const starts = items.map((item) => parseDateTime(getItemStart(item)));
-  const ends = items.map((item) => parseDateTime(getItemEnd(item)));
+  const ends = items.map((item) =>
+    parseDateTime(getItemExclusiveEnd(item, granularity)),
+  );
   const start = min(starts);
   const end = new Date(Math.max(...ends.map((date) => date.getTime())));
 

@@ -1,9 +1,9 @@
 import {
-  addSecondsToDateTime,
+  addTimelineUnits,
   compareDateTime,
-  secondsBetween,
+  timelineUnitsBetween,
 } from "./datetime";
-import { getItemEnd, getItemStart, moveItemBySeconds } from "./items";
+import { getItemEnd, getItemStart, moveItemByUnits } from "./items";
 import type { Dependency, TimelineDocument, TimelineItem } from "./types";
 
 export function detectDependencyCycles(dependencies: Dependency[]): string[][] {
@@ -52,7 +52,7 @@ export function detectDependencyCycles(dependencies: Dependency[]): string[][] {
 export function propagateMove(
   document: TimelineDocument,
   movedItemId: string,
-  deltaSeconds: number,
+  deltaUnits: number,
 ): { document: TimelineDocument; changedItemIds: string[] } {
   const itemsById = new Map(document.items.map((item) => [item.id, item]));
   const changedItems = new Map<string, TimelineItem>();
@@ -84,7 +84,7 @@ export function propagateMove(
       }
       changedItems.set(
         dependency.toId,
-        moveItemBySeconds(current, deltaSeconds),
+        moveItemByUnits(current, deltaUnits, document.timeline.granularity),
       );
       moved.add(dependency.toId);
       moveQueue.push(dependency.toId);
@@ -139,6 +139,7 @@ export function propagateConstraintViolations(
         incoming,
         itemsById,
         changedItems,
+        document.timeline.granularity,
       );
       if (
         !constrainedStart ||
@@ -146,13 +147,14 @@ export function propagateConstraintViolations(
       ) {
         continue;
       }
-      const deltaSeconds = secondsBetween(
+      const deltaUnits = timelineUnitsBetween(
         getItemStart(current),
         constrainedStart,
+        document.timeline.granularity,
       );
       changedItems.set(
         dependency.toId,
-        moveItemBySeconds(current, deltaSeconds),
+        moveItemByUnits(current, deltaUnits, document.timeline.granularity),
       );
       moveQueue.push(dependency.toId);
     }
@@ -175,6 +177,7 @@ function maxIncomingConstraintStart(
   incoming: Map<string, Dependency[]>,
   itemsById: Map<string, TimelineItem>,
   changedItems: Map<string, TimelineItem>,
+  granularity: TimelineDocument["timeline"]["granularity"],
 ) {
   let constrainedStart: string | null = null;
   for (const dependency of incoming.get(itemId) ?? []) {
@@ -183,9 +186,10 @@ function maxIncomingConstraintStart(
     if (!fromItem) {
       continue;
     }
-    const candidate = addSecondsToDateTime(
+    const candidate = addTimelineUnits(
       getItemEnd(fromItem),
-      dependency.lagSeconds,
+      dependency.lag + 1,
+      granularity,
     );
     if (!constrainedStart || compareDateTime(candidate, constrainedStart) > 0) {
       constrainedStart = candidate;
@@ -219,10 +223,12 @@ export function recalculateIncomingLagSeconds(
 
       return {
         ...dependency,
-        lagSeconds: secondsBetween(
-          getItemEnd(fromItem),
-          getItemStart(movedItem),
-        ),
+        lag:
+          timelineUnitsBetween(
+            getItemEnd(fromItem),
+            getItemStart(movedItem),
+            document.timeline.granularity,
+          ) - 1,
       };
     }),
   };
@@ -254,7 +260,12 @@ export function recalculateConnectedLagSeconds(
 
       return {
         ...dependency,
-        lagSeconds: secondsBetween(getItemEnd(fromItem), getItemStart(toItem)),
+        lag:
+          timelineUnitsBetween(
+            getItemEnd(fromItem),
+            getItemStart(toItem),
+            document.timeline.granularity,
+          ) - 1,
       };
     }),
   };

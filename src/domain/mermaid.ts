@@ -1,3 +1,4 @@
+import { addTimelineUnits } from "./datetime";
 import type { TimelineDocument, TimelineItem } from "./types";
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: Mermaid text is line-oriented.
@@ -27,20 +28,26 @@ export function createMermaidGantt(document: TimelineDocument): string {
     for (const item of items) {
       const taskId = `task_${taskNumber}`;
       taskNumber += 1;
-      lines.push(`    ${formatItem(item, taskId)}`);
+      lines.push(
+        `    ${formatItem(item, taskId, document.timeline.granularity)}`,
+      );
     }
   }
 
   return `${lines.join("\n")}\n`;
 }
 
-function formatItem(item: TimelineItem, taskId: string): string {
+function formatItem(
+  item: TimelineItem,
+  taskId: string,
+  granularity: TimelineDocument["timeline"]["granularity"],
+): string {
   const title = normalizeMermaidText(item.title);
   if (item.type === "instant") {
     return `${title} : milestone, ${taskId}, ${formatMermaidDate(item.at)}, 0d`;
   }
 
-  return `${title} : ${taskId}, ${formatMermaidDate(item.start)}, ${formatMermaidDate(item.end)}`;
+  return `${title} : ${taskId}, ${formatMermaidDate(item.start)}, ${formatMermaidDate(addTimelineUnits(item.end, 1, granularity))}`;
 }
 
 function compareByOrderAndId(

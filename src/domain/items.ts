@@ -1,5 +1,9 @@
-import { addSecondsToDateTime } from "./datetime";
-import type { DateTimeString, TimelineItem } from "./types";
+import { addTimelineUnits } from "./datetime";
+import type {
+  DateTimeString,
+  TimelineGranularity,
+  TimelineItem,
+} from "./types";
 
 export function getItemStart(item: TimelineItem): DateTimeString {
   return item.type === "duration" ? item.start : item.at;
@@ -9,20 +13,30 @@ export function getItemEnd(item: TimelineItem): DateTimeString {
   return item.type === "duration" ? item.end : item.at;
 }
 
-export function moveItemBySeconds(
+export function getItemExclusiveEnd(
   item: TimelineItem,
-  seconds: number,
+  granularity: TimelineGranularity,
+): DateTimeString {
+  return item.type === "duration"
+    ? addTimelineUnits(item.end, 1, granularity)
+    : item.at;
+}
+
+export function moveItemByUnits(
+  item: TimelineItem,
+  units: number,
+  granularity: TimelineGranularity,
 ): TimelineItem {
   if (item.type === "instant") {
     return {
       ...item,
-      at: addSecondsToDateTime(item.at, seconds),
+      at: addTimelineUnits(item.at, units, granularity),
     };
   }
 
   return {
     ...item,
-    start: addSecondsToDateTime(item.start, seconds),
-    end: addSecondsToDateTime(item.end, seconds),
+    start: addTimelineUnits(item.start, units, granularity),
+    end: addTimelineUnits(item.end, units, granularity),
   };
 }

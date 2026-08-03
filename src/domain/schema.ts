@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { compareDateTime, isDateTimeString } from "./datetime";
+import {
+  compareDateTime,
+  isAlignedToGranularity,
+  isDateTimeString,
+} from "./datetime";
 import { detectDependencyCycles } from "./dependencies";
 import {
   schemaVersion,
@@ -32,9 +36,9 @@ const durationItemSchema = baseItemSchema
     start: dateTimeSchema,
     end: dateTimeSchema,
   })
-  .refine((item) => compareDateTime(item.start, item.end) < 0, {
+  .refine((item) => compareDateTime(item.start, item.end) <= 0, {
     path: ["end"],
-    message: "期間アイテムの end は start より後にしてください。",
+    message: "期間アイテムの end は start 以上にしてください。",
   });
 
 const instantItemSchema = baseItemSchema.extend({
@@ -59,6 +63,7 @@ export const timelineDocumentSchema = z.object({
   timeline: z.object({
     title: z.string().min(1),
     description: z.string().optional(),
+    granularity: z.enum(["year", "month", "day", "hour"]),
   }),
   lanes: z.array(
     z.object({
@@ -84,7 +89,7 @@ export const timelineDocumentSchema = z.object({
       fromId: z.string().min(1),
       toId: z.string().min(1),
       type: z.literal("finish-to-start"),
-      lagSeconds: z.number().int(),
+      lag: z.number().int(),
     }),
   ),
   view: z.object({
@@ -138,6 +143,19 @@ export function validateDocumentIntegrity(
   collectDuplicateIds("dependencies", document.dependencies, issues);
 
   document.items.forEach((item, itemIndex) => {
+    const values =
+      item.type === "duration" ? [item.start, item.end] : [item.at];
+    values.forEach((value, valueIndex) => {
+      if (!isAlignedToGranularity(value, document.timeline.granularity)) {
+        issues.push({
+          path:
+            item.type === "duration"
+              ? `items.${itemIndex}.${valueIndex === 0 ? "start" : "end"}`
+              : `items.${itemIndex}.at`,
+          message: `日時は時間粒度（${document.timeline.granularity}）の境界に揃えてください。`,
+        });
+      }
+    });
     if (!laneIds.has(item.laneId)) {
       issues.push({
         path: `items.${itemIndex}.laneId`,

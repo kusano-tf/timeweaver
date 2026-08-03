@@ -1,17 +1,22 @@
-import { addSecondsToDateTime, secondsBetween } from "../domain/datetime";
+import {
+  addTimelineUnits,
+  isAlignedToGranularity,
+  timelineUnitsBetween,
+} from "../domain/datetime";
 import {
   detectDependencyCycles,
   propagateConstraintViolations,
   propagateMove,
   recalculateConnectedLagSeconds,
 } from "../domain/dependencies";
-import { getItemEnd, getItemStart, moveItemBySeconds } from "../domain/items";
+import { getItemEnd, getItemStart, moveItemByUnits } from "../domain/items";
 import type {
   DateTimeString,
   Dependency,
   Lane,
   Tag,
   TimelineDocument,
+  TimelineGranularity,
   TimelineItem,
   TimelineScale,
   TimelineView,
@@ -32,6 +37,7 @@ export type TimelineAction =
   | { type: "selectDependency"; dependencyId: string }
   | { type: "setImportIssues"; issues: ValidationIssue[] }
   | { type: "updateTimelineMeta"; title?: string; description?: string }
+  | { type: "setGranularity"; granularity: TimelineGranularity }
   | { type: "setScale"; scale: TimelineScale }
   | { type: "setVisibleRange"; visibleRange: TimelineView["visibleRange"] }
   | { type: "toggleTag"; tagId: string }
@@ -39,7 +45,7 @@ export type TimelineAction =
   | {
       type: "moveItem";
       itemId: string;
-      deltaSeconds: number;
+      deltaUnits: number;
       laneId?: string;
       propagate?: boolean;
     }
@@ -47,7 +53,7 @@ export type TimelineAction =
   | { type: "copyItem"; itemId: string }
   | { type: "deleteItem"; itemId: string }
   | { type: "addDependency"; dependency: Dependency }
-  | { type: "updateDependencyLag"; dependencyId: string; lagSeconds: number }
+  | { type: "updateDependencyLag"; dependencyId: string; lag: number }
   | { type: "deleteDependency"; dependencyId: string }
   | { type: "addTag"; tag: Tag }
   | { type: "updateTag"; tagId: string; name?: string; color?: string }
@@ -130,6 +136,51 @@ export function timelineReducer(
         },
       };
 
+    case "setGranularity": {
+      if (state.document.timeline.granularity === action.granularity)
+        return state;
+      if (state.document.dependencies.length > 0) {
+        return {
+          ...state,
+          importIssues: [
+            {
+              path: "timeline.granularity",
+              message:
+                "依存関係があるタイムラインでは時間粒度を変更できません。",
+            },
+          ],
+        };
+      }
+      const unaligned = state.document.items.find((item) =>
+        (item.type === "duration" ? [item.start, item.end] : [item.at]).some(
+          (value) => !isAlignedToGranularity(value, action.granularity),
+        ),
+      );
+      if (unaligned) {
+        return {
+          ...state,
+          importIssues: [
+            {
+              path: "timeline.granularity",
+              message: `アイテム「${unaligned.title}」が選択した時間粒度に揃っていません。`,
+            },
+          ],
+        };
+      }
+      return {
+        ...state,
+        importIssues: [],
+        dirty: true,
+        document: {
+          ...state.document,
+          timeline: {
+            ...state.document.timeline,
+            granularity: action.granularity,
+          },
+        },
+      };
+    }
+
     case "setVisibleRange":
       return {
         ...state,
@@ -164,8 +215,12 @@ export function timelineReducer(
       const currentItem = state.document.items.find(
         (item) => item.id === nextItem.id,
       );
-      const endDeltaSeconds = currentItem
-        ? secondsBetween(getItemEnd(currentItem), getItemEnd(nextItem))
+      const endDeltaUnits = currentItem
+        ? timelineUnitsBetween(
+            getItemEnd(currentItem),
+            getItemEnd(nextItem),
+            state.document.timeline.granularity,
+          )
         : 0;
       const updatedDocument = {
         ...state.document,
@@ -174,9 +229,9 @@ export function timelineReducer(
         ),
       };
       const propagation =
-        endDeltaSeconds === 0 || action.propagate === false
+        endDeltaUnits === 0 || action.propagate === false
           ? { document: updatedDocument, changedItemIds: [] }
-          : propagateMove(updatedDocument, nextItem.id, endDeltaSeconds);
+          : propagateMove(updatedDocument, nextItem.id, endDeltaUnits);
 
       return {
         ...state,
@@ -196,7 +251,11 @@ export function timelineReducer(
             return item;
           }
           return {
-            ...moveItemBySeconds(item, action.deltaSeconds),
+            ...moveItemByUnits(
+              item,
+              action.deltaUnits,
+              state.document.timeline.granularity,
+            ),
             laneId: action.laneId ?? item.laneId,
           } as TimelineItem;
         }),
@@ -205,7 +264,7 @@ export function timelineReducer(
       const propagation =
         action.propagate === false
           ? { document: movedDocument, changedItemIds: [] }
-          : propagateMove(movedDocument, action.itemId, action.deltaSeconds);
+          : propagateMove(movedDocument, action.itemId, action.deltaUnits);
 
       return {
         ...state,
@@ -327,19 +386,30 @@ export function timelineReducer(
         return state;
       }
 
-      const targetStart = addSecondsToDateTime(
+      const targetStart = addTimelineUnits(
         getItemEnd(fromItem),
-        action.lagSeconds,
+        action.lag + 1,
+        state.document.timeline.granularity,
       );
-      const deltaSeconds = secondsBetween(getItemStart(toItem), targetStart);
+      const deltaUnits = timelineUnitsBetween(
+        getItemStart(toItem),
+        targetStart,
+        state.document.timeline.granularity,
+      );
       const updatedDocument = {
         ...state.document,
         items: state.document.items.map((item) =>
-          item.id === toItem.id ? moveItemBySeconds(item, deltaSeconds) : item,
+          item.id === toItem.id
+            ? moveItemByUnits(
+                item,
+                deltaUnits,
+                state.document.timeline.granularity,
+              )
+            : item,
         ),
         dependencies: state.document.dependencies.map((candidate) =>
           candidate.id === action.dependencyId
-            ? { ...candidate, lagSeconds: action.lagSeconds }
+            ? { ...candidate, lag: action.lag }
             : candidate,
         ),
       };
@@ -514,7 +584,7 @@ export function moveItemToStart(
   nextStart: DateTimeString,
 ): number {
   const currentStart = item.type === "duration" ? item.start : item.at;
-  return secondsBetween(currentStart, nextStart);
+  return timelineUnitsBetween(currentStart, nextStart, "hour");
 }
 
 function copyTimelineItem(
