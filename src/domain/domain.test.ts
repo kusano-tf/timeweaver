@@ -412,6 +412,18 @@ describe("管理操作", () => {
     );
   });
 
+  it("選択中の依存を削除すると選択を解除する", () => {
+    const selected = timelineReducer(stateFor(), {
+      type: "selectDependency",
+      dependencyId: "dep-design-build",
+    });
+    const state = timelineReducer(selected, {
+      type: "deleteDependency",
+      dependencyId: "dep-design-build",
+    });
+    expect(state.selectedDependencyId).toBeNull();
+  });
+
   it.each([
     ["selectItem", { type: "selectItem", itemId: "item-build" }],
     [

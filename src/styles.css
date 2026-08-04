@@ -1096,6 +1096,11 @@ label {
   background: #dbeafe;
 }
 
+.dependencyRowActions {
+  display: flex;
+  gap: 6px;
+}
+
 .emptyDependencyCell {
   color: #64748b;
   text-align: center;

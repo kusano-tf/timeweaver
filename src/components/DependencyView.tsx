@@ -8,6 +8,7 @@ import {
   useTimelineDispatch,
   useTimelineState,
 } from "../state/TimelineContext";
+import { DependencyActions } from "./DependencyActions";
 
 export function DependencyView() {
   const { document, selectedDependencyId } = useTimelineState();
@@ -48,12 +49,13 @@ export function DependencyView() {
                 <th>先行</th>
                 <th>後続</th>
                 <th>時間差</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="emptyDependencyCell">
+                  <td colSpan={4} className="emptyDependencyCell">
                     依存関係はありません。
                   </td>
                 </tr>
@@ -83,6 +85,14 @@ export function DependencyView() {
                           {dependency.lag}
                           {granularityLabel(document.timeline.granularity)}
                         </code>
+                      </td>
+                      <td>
+                        <div className="dependencyRowActions">
+                          <DependencyActions
+                            dependency={dependency}
+                            selectOnEdit
+                          />
+                        </div>
                       </td>
                     </tr>
                   );
