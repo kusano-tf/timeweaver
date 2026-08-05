@@ -38,6 +38,9 @@ import {
 import { PropagationPrompt } from "./PropagationPrompt";
 
 const minLaneHeight = 72;
+const singleRowLabelY = 29;
+const boundaryLabelY = 18;
+const lowerRowLabelY = 39;
 const headerHeight = 56;
 const laneHeaderWidth = 140;
 const minTimelineWidth = 1180;
@@ -786,7 +789,12 @@ function createTickDebugInfo(
     rangeEnd,
     xForDate,
   );
-  const labelInterval = createLabelInterval(scale, rangeStart, xForDate);
+  const labelInterval = createLabelInterval(
+    scale,
+    rangeStart,
+    xForDate,
+    tickInterval,
+  );
   const ticks = createTicks(
     scale,
     rangeStart,
@@ -917,7 +925,12 @@ function TimelineTicks({
     rangeEnd,
     xForDate,
   );
-  const labelInterval = createLabelInterval(scale, rangeStart, xForDate);
+  const labelInterval = createLabelInterval(
+    scale,
+    rangeStart,
+    xForDate,
+    tickInterval,
+  );
   const ticks = createTicks(
     scale,
     rangeStart,
@@ -932,6 +945,8 @@ function TimelineTicks({
     yearTickInterval,
   );
   const boundaryTimes = new Set(boundaryTicks.map((tick) => tick.getTime()));
+  const boundaryLabelPositions = boundaryTicks.map((tick) => xForDate(tick));
+  const hasBoundaryLabels = boundaryTicks.length > 0;
   return (
     <g>
       <rect
@@ -961,16 +976,17 @@ function TimelineTicks({
               stroke={theme.laneBorder}
               strokeWidth={isBoundary ? 1.5 : 1}
             />
-            {shouldShowTickLabel(scale, tick, labelInterval, isBoundary) && (
-              <text
-                x={x + 6}
-                y={34}
-                className="tickLabel"
-                fill={theme.tickLabel}
-              >
-                {formatTick(scale, tick)}
-              </text>
-            )}
+            {shouldShowTickLabel(scale, tick, labelInterval, isBoundary) &&
+              !hasBoundaryLabelCollision(x, boundaryLabelPositions) && (
+                <text
+                  x={x + 6}
+                  y={hasBoundaryLabels ? lowerRowLabelY : singleRowLabelY}
+                  className="tickLabel"
+                  fill={theme.tickLabel}
+                >
+                  {formatTick(scale, tick)}
+                </text>
+              )}
           </g>
         );
       })}
@@ -988,11 +1004,19 @@ function TimelineTicks({
             />
             <text
               x={x + 6}
-              y={18}
+              y={boundaryLabelY}
               className="boundaryTickLabel"
               fill={theme.boundaryTickLabel}
             >
               {formatBoundaryTick(scale, tick)}
+            </text>
+            <text
+              x={x + 6}
+              y={lowerRowLabelY}
+              className="tickLabel"
+              fill={theme.tickLabel}
+            >
+              {formatTick(scale, tick)}
             </text>
           </g>
         );
@@ -1068,7 +1092,7 @@ function itemOverlapsRange(
   return start <= rangeEnd && end >= rangeStart;
 }
 
-function createBoundaryTicks(
+export function createBoundaryTicks(
   scale: TimelineScale,
   start: Date,
   end: Date,
@@ -1087,6 +1111,18 @@ function createBoundaryTicks(
         ticks.push(current);
       }
       current = addYears(current, boundaryInterval);
+    }
+    return ticks;
+  }
+
+  if (scale === "month") {
+    const ticks: Date[] = [];
+    let current = startOfYear(start);
+    while (current <= end && ticks.length < maxRenderedTicks) {
+      if (current >= start) {
+        ticks.push(current);
+      }
+      current = addYears(current, 1);
     }
     return ticks;
   }
@@ -1154,10 +1190,11 @@ function createTickInterval(
   return 1;
 }
 
-function createLabelInterval(
+export function createLabelInterval(
   scale: TimelineScale,
   start: Date,
   xForDate: (date: Date) => number,
+  tickInterval: number,
 ) {
   if (scale === "year" || scale === "month") {
     return 1;
@@ -1177,10 +1214,10 @@ function createLabelInterval(
     );
   }
 
-  return nearestInterval(Math.ceil(64 / tickSpacing), [1, 2, 7, 14, 28, 56]);
+  return tickInterval;
 }
 
-function shouldShowTickLabel(
+export function shouldShowTickLabel(
   scale: TimelineScale,
   tick: Date,
   labelInterval: number,
@@ -1193,9 +1230,18 @@ function shouldShowTickLabel(
     return tick.getHours() % labelInterval === 0;
   }
   if (scale === "day") {
-    return (tick.getDate() - 1) % labelInterval === 0;
+    return true;
   }
   return true;
+}
+
+function hasBoundaryLabelCollision(
+  tickX: number,
+  boundaryLabelPositions: number[],
+) {
+  return boundaryLabelPositions.some(
+    (boundaryX) => Math.abs(tickX - boundaryX) < 24,
+  );
 }
 
 function nearestInterval(minInterval: number, intervals: number[]) {
@@ -1206,20 +1252,20 @@ function nearestInterval(minInterval: number, intervals: number[]) {
   );
 }
 
-function formatTick(scale: TimelineScale, date: Date) {
+export function formatTick(scale: TimelineScale, date: Date) {
   if (scale === "year") {
     return formatYearLabel(date);
   }
   if (scale === "month") {
-    return format(date, "yyyy-MM");
+    return format(date, "MM");
   }
   if (scale === "day") {
-    return format(date, "MM-dd");
+    return format(date, "dd");
   }
   return format(date, "HH");
 }
 
-function formatBoundaryTick(scale: TimelineScale, date: Date) {
+export function formatBoundaryTick(scale: TimelineScale, date: Date) {
   if (scale === "year") {
     return formatYearLabel(date);
   }
@@ -1228,6 +1274,9 @@ function formatBoundaryTick(scale: TimelineScale, date: Date) {
   }
   if (scale === "day") {
     return format(date, "yyyy-MM");
+  }
+  if (scale === "month") {
+    return format(date, "yyyy");
   }
   return formatTick(scale, date);
 }
