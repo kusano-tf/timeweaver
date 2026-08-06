@@ -438,7 +438,7 @@ export function Toolbar() {
                 ))}
               </div>
             </section>
-            <section className="themeDialogSection">
+            <section className="themeDialogSection themeAppearanceSection">
               <div className="themeSectionHeading">
                 <h3>外観</h3>
                 <button type="button" onClick={resetTheme}>
