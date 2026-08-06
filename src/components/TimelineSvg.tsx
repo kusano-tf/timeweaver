@@ -20,7 +20,7 @@ import {
 } from "../domain/datetime";
 import { filterItemsByTags, getItemColor } from "../domain/filtering";
 import { getItemExclusiveEnd, getItemStart } from "../domain/items";
-import type { TimelineTheme } from "../domain/theme";
+import { type TimelineTheme, timelineThemes } from "../domain/theme";
 import {
   createTimelineRange,
   panTimelineRange,
@@ -1019,7 +1019,7 @@ function TimelineTicks({
                   className="tickLabel"
                   fill={theme.tickLabel}
                 >
-                  {formatTick(scale, tick)}
+                  {formatTick(scale, tick, theme)}
                 </text>
               )}
           </g>
@@ -1043,7 +1043,7 @@ function TimelineTicks({
               className="boundaryTickLabel"
               fill={theme.boundaryTickLabel}
             >
-              {formatBoundaryTick(scale, tick)}
+              {formatBoundaryTick(scale, tick, theme)}
             </text>
             <text
               x={x + 6}
@@ -1051,7 +1051,7 @@ function TimelineTicks({
               className="tickLabel"
               fill={theme.tickLabel}
             >
-              {formatTick(scale, tick)}
+              {formatTick(scale, tick, theme)}
             </text>
           </g>
         );
@@ -1287,33 +1287,20 @@ function nearestInterval(minInterval: number, intervals: number[]) {
   );
 }
 
-export function formatTick(scale: TimelineScale, date: Date) {
-  if (scale === "year") {
-    return formatYearLabel(date);
-  }
-  if (scale === "month") {
-    return format(date, "MM");
-  }
-  if (scale === "day") {
-    return format(date, "dd");
-  }
-  return format(date, "HH");
+export function formatTick(
+  scale: TimelineScale,
+  date: Date,
+  theme = timelineThemes.light,
+) {
+  return formatAxisLabel(date, theme[`${scale}Format`]);
 }
 
-export function formatBoundaryTick(scale: TimelineScale, date: Date) {
-  if (scale === "year") {
-    return formatYearLabel(date);
-  }
-  if (scale === "hour") {
-    return format(date, "MM-dd");
-  }
-  if (scale === "day") {
-    return format(date, "yyyy-MM");
-  }
-  if (scale === "month") {
-    return format(date, "yyyy");
-  }
-  return formatTick(scale, date);
+export function formatBoundaryTick(
+  scale: TimelineScale,
+  date: Date,
+  theme = timelineThemes.light,
+) {
+  return formatAxisLabel(date, theme[`${scale}BoundaryFormat`]);
 }
 
 function createYearTickInterval(start: Date, end: Date, plotWidth: number) {
@@ -1340,9 +1327,15 @@ function startOfYearInterval(date: Date, interval: number) {
   return aligned;
 }
 
-function formatYearLabel(date: Date) {
-  const year = date.getFullYear();
-  return String(year);
+function formatAxisLabel(date: Date, template: string) {
+  return template
+    .replaceAll("YYYY", String(date.getFullYear()))
+    .replaceAll("MM", String(date.getMonth() + 1).padStart(2, "0"))
+    .replaceAll("M", String(date.getMonth() + 1))
+    .replaceAll("DD", String(date.getDate()).padStart(2, "0"))
+    .replaceAll("D", String(date.getDate()))
+    .replaceAll("HH", String(date.getHours()).padStart(2, "0"))
+    .replaceAll("H", String(date.getHours()));
 }
 
 type ItemLayout = {

@@ -11,6 +11,14 @@ export type TimelineThemeDefinition = {
   laneLabel: string;
   tickLabel: string;
   boundaryTickLabel: string;
+  yearBoundaryFormat: string;
+  yearFormat: string;
+  monthBoundaryFormat: string;
+  monthFormat: string;
+  dayBoundaryFormat: string;
+  dayFormat: string;
+  hourBoundaryFormat: string;
+  hourFormat: string;
   dependencyLine: string;
   dependencyLineWidth: number;
   dependencyLineStyle: "solid" | "dashed";
@@ -41,6 +49,14 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
     laneLabel: "#334155",
     tickLabel: "#475569",
     boundaryTickLabel: "#0f172a",
+    yearBoundaryFormat: "YYYY",
+    yearFormat: "YYYY",
+    monthBoundaryFormat: "YYYY",
+    monthFormat: "MM",
+    dayBoundaryFormat: "YYYY-MM",
+    dayFormat: "DD",
+    hourBoundaryFormat: "MM-DD",
+    hourFormat: "HH",
     dependencyLine: "#64748b",
     dependencyLineWidth: 2,
     dependencyLineStyle: "solid",
@@ -66,6 +82,14 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
     laneLabel: "#e2e8f0",
     tickLabel: "#cbd5e1",
     boundaryTickLabel: "#f8fafc",
+    yearBoundaryFormat: "YYYY",
+    yearFormat: "YYYY",
+    monthBoundaryFormat: "YYYY",
+    monthFormat: "MM",
+    dayBoundaryFormat: "YYYY-MM",
+    dayFormat: "DD",
+    hourBoundaryFormat: "MM-DD",
+    hourFormat: "HH",
     dependencyLine: "#94a3b8",
     dependencyLineWidth: 2,
     dependencyLineStyle: "solid",
@@ -90,7 +114,7 @@ export const timelineThemeLabels: Record<TimelineThemePreset, string> = {
 export const timelineThemeEntries: {
   key: keyof TimelineThemeDefinition;
   label: string;
-  type: "color" | "width" | "percent" | "select";
+  type: "color" | "width" | "percent" | "select" | "format";
 }[] = [
   { key: "timelineBackground", label: "背景", type: "color" },
   { key: "headerBackground", label: "ヘッダー背景", type: "color" },
@@ -102,6 +126,14 @@ export const timelineThemeEntries: {
   { key: "laneLabel", label: "ラベル", type: "color" },
   { key: "tickLabel", label: "目盛りラベル", type: "color" },
   { key: "boundaryTickLabel", label: "境界目盛りラベル", type: "color" },
+  { key: "yearBoundaryFormat", label: "年・上段", type: "format" },
+  { key: "yearFormat", label: "年・下段", type: "format" },
+  { key: "monthBoundaryFormat", label: "月・上段", type: "format" },
+  { key: "monthFormat", label: "月・下段", type: "format" },
+  { key: "dayBoundaryFormat", label: "日・上段", type: "format" },
+  { key: "dayFormat", label: "日・下段", type: "format" },
+  { key: "hourBoundaryFormat", label: "時・上段", type: "format" },
+  { key: "hourFormat", label: "時・下段", type: "format" },
   { key: "dependencyLine", label: "線", type: "color" },
   { key: "dependencyLineWidth", label: "線", type: "width" },
   { key: "dependencyLineStyle", label: "スタイル", type: "select" },
@@ -130,6 +162,14 @@ export const timelineThemeSections = [
       "axisLineWidth",
       "tickLabel",
       "boundaryTickLabel",
+      "yearBoundaryFormat",
+      "yearFormat",
+      "monthBoundaryFormat",
+      "monthFormat",
+      "dayBoundaryFormat",
+      "dayFormat",
+      "hourBoundaryFormat",
+      "hourFormat",
     ],
   },
   {

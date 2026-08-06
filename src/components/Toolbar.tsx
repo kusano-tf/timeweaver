@@ -532,6 +532,19 @@ export function Toolbar() {
                                   )
                                 }
                               />
+                            ) : entry.type === "format" ? (
+                              <input
+                                aria-label={`${entry.label}の書式`}
+                                className="themeHexInput"
+                                maxLength={40}
+                                value={value}
+                                onChange={(event) =>
+                                  updateThemeToken(
+                                    entry.key,
+                                    event.target.value,
+                                  )
+                                }
+                              />
                             ) : (
                               <select
                                 aria-label={entry.label}
@@ -670,6 +683,8 @@ function parseThemeToken(
       ? percent
       : undefined;
   }
+  if (key.endsWith("Format"))
+    return value.length > 0 && value.length <= 40 ? value : undefined;
   if (key === "dependencyLineStyle")
     return value === "solid" || value === "dashed" ? value : undefined;
   if (key === "itemShape")
