@@ -724,6 +724,13 @@ label {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.laneNameInput {
+  min-height: 48px;
+  max-height: 96px;
+  overflow-y: auto;
+  resize: vertical;
+}
+
 .inlineForm .colorInput {
   width: 38px;
   min-width: 38px;
@@ -749,6 +756,7 @@ label {
 }
 
 .laneManagementRow {
+  align-items: start;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 

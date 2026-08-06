@@ -48,6 +48,8 @@ const itemTopOffset = 20;
 const itemRowStep = 40;
 const itemHeight = 28;
 const itemGap = 8;
+const laneLabelLineHeight = 18;
+const laneLabelVerticalPadding = 16;
 const dragModeRatio = 1.2;
 const maxRenderedTicks = 80;
 
@@ -630,13 +632,25 @@ export function TimelineSvg() {
                 fill={theme.laneBackground}
               />
               <line x1={0} x2={width} y1={y} y2={y} stroke={theme.laneBorder} />
-              <text
-                x={20}
-                y={y + 42}
-                className="laneLabel"
-                fill={theme.laneLabel}
-              >
-                {lane.name}
+              <text className="laneLabel" fill={theme.laneLabel}>
+                {splitLaneNameLines(lane.name).map((line, index, lines) => (
+                  <tspan
+                    key={createLaneLabelKey(
+                      lane.id,
+                      line,
+                      lines.slice(0, index),
+                    )}
+                    x={20}
+                    y={
+                      y +
+                      laneHeight / 2 +
+                      (index - (lines.length - 1) / 2) * laneLabelLineHeight
+                    }
+                    dominantBaseline="middle"
+                  >
+                    {line}
+                  </tspan>
+                ))}
               </text>
             </g>
           );
@@ -1415,12 +1429,27 @@ function createLaneGeometry(lanes: Lane[], laneRowsById: Map<string, number>) {
     const height = Math.max(
       minLaneHeight,
       itemTopOffset + rows * itemRowStep + itemHeight / 2,
+      splitLaneNameLines(lane.name).length * laneLabelLineHeight +
+        laneLabelVerticalPadding * 2,
     );
     byId.set(lane.id, { top, height });
     top += height;
   }
 
   return { byId, totalHeight: top };
+}
+
+function splitLaneNameLines(name: string): string[] {
+  return name.replace(/\r\n?/g, "\n").split("\n");
+}
+
+function createLaneLabelKey(
+  laneId: string,
+  line: string,
+  precedingLines: string[],
+): string {
+  const occurrence = precedingLines.filter((value) => value === line).length;
+  return `${laneId}-${line}-${occurrence}`;
 }
 
 function sortByOrder<T extends { order: number }>(values: T[]): T[] {

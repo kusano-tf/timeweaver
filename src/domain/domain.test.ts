@@ -56,6 +56,13 @@ describe("時間粒度のスキーマ", () => {
     expect(parseTimelineDocument(document).ok).toBe(true);
   });
 
+  it("改行を含むレーン名を受理する", () => {
+    const document = structuredClone(sampleTimeline);
+    document.lanes[0].name = "設計\nレビュー";
+
+    expect(parseTimelineDocument(document).ok).toBe(true);
+  });
+
   it("終了が開始より前の期間を拒否する", () => {
     const document = structuredClone(sampleTimeline);
     const item = document.items[0];
@@ -149,6 +156,13 @@ describe("Mermaid", () => {
     expect(mermaid).toContain(
       "設計 : task_1, 2026-07-13 00:00:00, 2026-07-16 00:00:00",
     );
+  });
+
+  it("レーン名の改行を空白へ正規化する", () => {
+    const document = structuredClone(sampleTimeline);
+    document.lanes[0].name = "設計\nレビュー";
+
+    expect(createMermaidGantt(document)).toContain("section 設計 レビュー");
   });
 });
 
@@ -378,11 +392,11 @@ describe("管理操作", () => {
     state = timelineReducer(state, {
       type: "updateLane",
       laneId: "lane-planning",
-      name: "準備",
+      name: "準備\nレビュー",
     });
     expect(state.document.timeline.title).toBe("新しい予定");
     expect(state.document.tags[0].name).toBe("計画");
-    expect(state.document.lanes[0].name).toBe("準備");
+    expect(state.document.lanes[0].name).toBe("準備\nレビュー");
   });
 
   it("アイテムを含むレーンの削除を拒否する", () => {

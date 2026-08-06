@@ -202,7 +202,19 @@ export function TagLaneSettings() {
             addLane(formData);
           }}
         >
-          <input name="laneName" placeholder="レーン名" />
+          <textarea
+            name="laneName"
+            className="laneNameInput"
+            placeholder="レーン名"
+            rows={2}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+            onInput={(event) => resizeLaneNameInput(event.currentTarget)}
+          />
           <button
             type="submit"
             className="create iconButton"
@@ -442,12 +454,14 @@ function SortableLaneRow({
       >
         <GripVertical aria-hidden="true" size={16} />
       </button>
-      <input
+      <textarea
         aria-label={`${lane.name} の名前`}
-        className="managementNameInput"
+        className="managementNameInput laneNameInput"
+        rows={Math.min(4, Math.max(2, name.split(/\r?\n/).length))}
         value={name}
         onBlur={(event) => commitName(event.target.value)}
         onChange={(event) => {
+          resizeLaneNameInput(event.currentTarget);
           setName(event.target.value);
           const trimmed = event.target.value.trim();
           if (trimmed) {
@@ -502,4 +516,9 @@ function createId(prefix: string, name: string, existingIds: string[]) {
   }
 
   return candidate;
+}
+
+function resizeLaneNameInput(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 96)}px`;
 }
