@@ -264,6 +264,54 @@ label {
   box-shadow: 0 24px 60px rgb(15 23 42 / 0.24);
 }
 
+.mermaidDialog {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(760px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 0.24);
+}
+
+.mermaidDialog h2 {
+  margin: 0;
+}
+
+.mermaidDefinition {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mermaidDialogActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mermaidDialogActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mermaidCopyStatus {
+  min-width: 10em;
+  margin-right: auto;
+  color: #475569;
+  font-size: 13px;
+}
+
 .themeDialogHeader {
   display: flex;
   align-items: flex-start;
@@ -1114,6 +1162,14 @@ label {
   place-items: center;
   background: rgb(15 23 42 / 0.36);
   padding: 24px;
+}
+
+.modalDismissButton {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .dependencyDialog {

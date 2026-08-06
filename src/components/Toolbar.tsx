@@ -1,6 +1,7 @@
 import {
   Bug,
   BugOff,
+  Copy,
   Download,
   ImageDown,
   MoreHorizontal,
@@ -47,6 +48,10 @@ export function Toolbar() {
     useDebugEnabled();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [mermaidDialogOpen, setMermaidDialogOpen] = useState(false);
+  const [mermaidCopyStatus, setMermaidCopyStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
   const [themeDraft, setThemeDraft] = useState<StoredTheme | null>(null);
   const [themeHexValues, setThemeHexValues] = useState<Record<
     keyof TimelineThemeDefinition,
@@ -69,6 +74,7 @@ export function Toolbar() {
       if (event.key === "Escape") {
         setExportMenuOpen(false);
         closeThemeDialog();
+        closeMermaidDialog();
       }
     }
 
@@ -79,6 +85,15 @@ export function Toolbar() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   });
+
+  useEffect(() => {
+    if (mermaidCopyStatus === "idle") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setMermaidCopyStatus("idle"), 2000);
+    return () => window.clearTimeout(timer);
+  }, [mermaidCopyStatus]);
 
   async function handleImport(file: File) {
     const text = await file.text();
@@ -152,13 +167,32 @@ export function Toolbar() {
     setExportMenuOpen(false);
   }
 
-  function handleExportMermaid() {
+  function openMermaidDialog() {
+    setMermaidCopyStatus("idle");
+    setMermaidDialogOpen(true);
+    setExportMenuOpen(false);
+  }
+
+  function closeMermaidDialog() {
+    setMermaidDialogOpen(false);
+    setMermaidCopyStatus("idle");
+  }
+
+  function downloadMermaid() {
     downloadText(
       `${timelineDocument.timeline.title || "timeweaver"}.mmd`,
       createMermaidGantt(timelineDocument),
       "text/plain;charset=utf-8",
     );
-    setExportMenuOpen(false);
+  }
+
+  async function copyMermaid() {
+    try {
+      await navigator.clipboard.writeText(createMermaidGantt(timelineDocument));
+      setMermaidCopyStatus("success");
+    } catch {
+      setMermaidCopyStatus("error");
+    }
   }
 
   function openThemeDialog() {
@@ -304,11 +338,7 @@ export function Toolbar() {
                 <Download aria-hidden="true" size={16} />
                 SVG出力
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={handleExportMermaid}
-              >
+              <button type="button" role="menuitem" onClick={openMermaidDialog}>
                 <Download aria-hidden="true" size={16} />
                 Mermaid出力
               </button>
@@ -493,6 +523,57 @@ export function Toolbar() {
                 onClick={saveThemeEdit}
               >
                 保存
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {mermaidDialogOpen && (
+        <div className="modalBackdrop" role="presentation">
+          <button
+            type="button"
+            className="modalDismissButton"
+            aria-label="Mermaid出力を閉じる"
+            onClick={closeMermaidDialog}
+          />
+          <section
+            className="mermaidDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mermaid-dialog-title"
+          >
+            <div className="themeDialogHeader">
+              <h2 id="mermaid-dialog-title">Mermaid出力</h2>
+              <button
+                type="button"
+                className="iconButton"
+                aria-label="Mermaid出力を閉じる"
+                title="閉じる"
+                onClick={closeMermaidDialog}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </div>
+            <textarea
+              className="mermaidDefinition"
+              aria-label="Mermaid定義"
+              readOnly
+              spellCheck={false}
+              value={createMermaidGantt(timelineDocument)}
+              wrap="off"
+            />
+            <div className="mermaidDialogActions">
+              <span aria-live="polite" className="mermaidCopyStatus">
+                {mermaidCopyStatus === "success" && "コピーしました"}
+                {mermaidCopyStatus === "error" && "コピーに失敗しました"}
+              </span>
+              <button type="button" onClick={downloadMermaid}>
+                <Download aria-hidden="true" size={16} />
+                .mmdをダウンロード
+              </button>
+              <button type="button" className="primary" onClick={copyMermaid}>
+                <Copy aria-hidden="true" size={16} />
+                コピー
               </button>
             </div>
           </section>
