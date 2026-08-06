@@ -37,16 +37,12 @@ import {
 } from "../state/TimelineContext";
 import { PropagationPrompt } from "./PropagationPrompt";
 
-const minLaneHeight = 72;
 const singleRowLabelY = 29;
 const boundaryLabelY = 18;
 const lowerRowLabelY = 39;
 const headerHeight = 56;
 const laneHeaderWidth = 140;
 const minTimelineWidth = 1180;
-const itemTopOffset = 20;
-const itemRowStep = 40;
-const itemHeight = 28;
 const itemGap = 8;
 const laneLabelLineHeight = 18;
 const laneLabelVerticalPadding = 16;
@@ -126,11 +122,16 @@ export function TimelineSvg() {
 
   const width = timelineWidth;
   const plotWidth = width - laneHeaderWidth;
+  const laneMetrics = getLaneMetrics(theme);
   const totalMs = Math.max(1, range.end.getTime() - range.start.getTime());
   const itemById = new Map(visibleItems.map((item) => [item.id, item]));
   const itemLayout = createItemLayout(visibleItems, xForItemStart, xForItemEnd);
   const laneRowsById = countLaneRows(sortedLanes, itemLayout);
-  const laneGeometry = createLaneGeometry(sortedLanes, laneRowsById);
+  const laneGeometry = createLaneGeometry(
+    sortedLanes,
+    laneRowsById,
+    laneMetrics,
+  );
   const activeDrag = drag ? resolveDragState(drag) : null;
   const previewLaneId =
     drag && activeDrag?.mode === "lane"
@@ -170,6 +171,7 @@ export function TimelineSvg() {
         xForItemStart,
         xForItemEnd,
         yForItem,
+        laneMetrics.itemHeight,
       )
     : null;
   const debugInfo = debugTickInfo
@@ -280,7 +282,7 @@ export function TimelineSvg() {
   }
 
   function heightForLane(laneId: string) {
-    return laneGeometry.byId.get(laneId)?.height ?? minLaneHeight;
+    return laneGeometry.byId.get(laneId)?.height ?? laneMetrics.minimumHeight;
   }
 
   function yForItem(item: TimelineItem) {
@@ -294,7 +296,7 @@ export function TimelineSvg() {
   function yForLayoutItem(item: TimelineItem, layout: Map<string, ItemLayout>) {
     const laneTop = yForLane(item.laneId);
     const row = layout.get(item.id)?.row ?? 0;
-    return laneTop + itemTopOffset + row * itemRowStep;
+    return laneTop + laneMetrics.padding + row * laneMetrics.rowStep;
   }
 
   function laneIdForClientY(clientY: number) {
@@ -484,7 +486,12 @@ export function TimelineSvg() {
       return (
         <g key={key} {...commonProps}>
           <path
-            d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
+            d={createInstantItemPath(
+              x,
+              y,
+              laneMetrics.itemHeight,
+              theme.instantItemShape,
+            )}
             fill={color}
             stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
             strokeWidth={theme.itemStrokeWidth + (isSelected ? 1 : 0)}
@@ -492,8 +499,8 @@ export function TimelineSvg() {
           />
           {document.view.itemDisplay.showLabels && (
             <text
-              x={x + 16}
-              y={y + 17}
+              x={x + laneMetrics.itemHeight / 2 + 4}
+              y={y + laneMetrics.itemHeight / 2 + 5}
               className="itemLabel"
               fill={theme.itemLabel}
             >
@@ -511,8 +518,8 @@ export function TimelineSvg() {
           x={x}
           y={y}
           width={itemWidth}
-          height={28}
-          rx={6}
+          height={laneMetrics.itemHeight}
+          rx={itemCornerRadius(theme.itemShape, laneMetrics.itemHeight)}
           fill={color}
           stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
           strokeWidth={theme.itemStrokeWidth + (isSelected ? 1 : 0)}
@@ -521,7 +528,7 @@ export function TimelineSvg() {
         {document.view.itemDisplay.showLabels && (
           <text
             x={x + 10}
-            y={y + 19}
+            y={y + laneMetrics.itemHeight / 2 + 5}
             className="itemLabel inBar"
             fill={theme.itemLabelOnColor}
           >
@@ -704,8 +711,8 @@ export function TimelineSvg() {
               }
               const fromX = xForItemEnd(from);
               const toX = xForItemStart(to);
-              const fromY = yForItem(from) + itemHeight / 2;
-              const toY = yForItem(to) + itemHeight / 2;
+              const fromY = yForItem(from) + laneMetrics.itemHeight / 2;
+              const toY = yForItem(to) + laneMetrics.itemHeight / 2;
               const isSelected = dependency.id === selectedDependencyId;
               return (
                 <path
@@ -717,6 +724,11 @@ export function TimelineSvg() {
                   }
                   opacity={isSelected ? 1 : 0.55}
                   strokeWidth={theme.dependencyLineWidth + (isSelected ? 1 : 0)}
+                  strokeDasharray={
+                    theme.dependencyLineStyle === "dashed"
+                      ? `${theme.dependencyLineWidth * 3} ${theme.dependencyLineWidth * 2}`
+                      : undefined
+                  }
                   className="dependencyLine"
                   data-selected-dependency={isSelected ? "true" : undefined}
                   markerEnd={
@@ -869,6 +881,7 @@ function describeItemLayout(
   xForStart: (item: TimelineItem) => number,
   xForEnd: (item: TimelineItem) => number,
   yForItem: (item: TimelineItem) => number,
+  itemHeight: number,
 ) {
   const width =
     item.type === "duration"
@@ -1428,15 +1441,20 @@ function countLaneRows(
   return rowsByLane;
 }
 
-function createLaneGeometry(lanes: Lane[], laneRowsById: Map<string, number>) {
+function createLaneGeometry(
+  lanes: Lane[],
+  laneRowsById: Map<string, number>,
+  metrics: ReturnType<typeof getLaneMetrics>,
+) {
   const byId = new Map<string, { top: number; height: number }>();
   let top = headerHeight;
 
   for (const lane of lanes) {
     const rows = laneRowsById.get(lane.id) ?? 1;
     const height = Math.max(
-      minLaneHeight,
-      itemTopOffset + rows * itemRowStep + itemHeight / 2,
+      metrics.padding * 2 +
+        rows * metrics.itemHeight +
+        (rows - 1) * metrics.rowGap,
       splitLaneNameLines(lane.name).length * laneLabelLineHeight +
         laneLabelVerticalPadding * 2,
     );
@@ -1445,6 +1463,43 @@ function createLaneGeometry(lanes: Lane[], laneRowsById: Map<string, number>) {
   }
 
   return { byId, totalHeight: top };
+}
+
+function getLaneMetrics(theme: TimelineTheme) {
+  const itemHeight = 28 * (theme.itemHeightPercent / 100);
+  const padding = 20 * (theme.lanePaddingPercent / 100);
+  const rowGap = 12 * (theme.laneRowGapPercent / 100);
+  return {
+    itemHeight,
+    padding,
+    rowGap,
+    rowStep: itemHeight + rowGap,
+    minimumHeight: itemHeight + padding * 2,
+  };
+}
+
+function itemCornerRadius(shape: TimelineTheme["itemShape"], height: number) {
+  return shape === "square" ? 0 : shape === "pill" ? height / 2 : 6;
+}
+
+function createInstantItemPath(
+  x: number,
+  y: number,
+  itemHeight: number,
+  shape: TimelineTheme["instantItemShape"],
+) {
+  const size = itemHeight * (6 / 7);
+  const half = size / 2;
+  const centerY = y + itemHeight / 2;
+  if (shape === "circle")
+    return `M ${x} ${centerY} m ${-half},0 a ${half},${half} 0 1,0 ${size},0 a ${half},${half} 0 1,0 ${-size},0`;
+  if (shape === "star")
+    return `${Array.from({ length: 10 }, (_, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI) / 5;
+      const radius = index % 2 === 0 ? half : half * 0.45;
+      return `${index === 0 ? "M" : "L"} ${x + Math.cos(angle) * radius} ${centerY + Math.sin(angle) * radius}`;
+    }).join(" ")} Z`;
+  return `M ${x} ${centerY - half} L ${x + half} ${centerY} L ${x} ${centerY + half} L ${x - half} ${centerY} Z`;
 }
 
 function splitLaneNameLines(name: string): string[] {

@@ -349,8 +349,14 @@ to.start = from.end + (lag + 1) * timeline.granularity
     "boundaryTickLabel": "#0f172a",
     "dependencyLine": "#64748b",
     "dependencyLineWidth": 2,
+    "dependencyLineStyle": "solid",
+    "itemHeightPercent": 100,
+    "lanePaddingPercent": 100,
+    "laneRowGapPercent": 100,
     "itemStroke": "#ffffff",
     "itemStrokeWidth": 2,
+    "itemShape": "rounded",
+    "instantItemShape": "diamond",
     "itemLabel": "#0f172a",
     "itemLabelOnColor": "#ffffff"
   }
@@ -358,6 +364,6 @@ to.start = from.end + (lag + 1) * timeline.granularity
 ```
 
 - `schemaVersion`: テーマ形式のバージョン。現時点では `"1.0.0"`。
-- `tokens`: テーマ項目の辞書。色は `#RRGGBB`、線幅は `0.5`〜`8` の `0.5` 刻みの数値で、上記の全項目を指定する。`axisLine` / `axisLineWidth` は時間軸の線・目盛り線、`laneBorder` / `laneBorderWidth` はレーン境界線に使う。
+- `tokens`: テーマ項目の辞書。色は `#RRGGBB`、線幅は `0.5`〜`8` の `0.5` 刻み、レイアウト倍率は `50`〜`200` の `5` 刻みの数値で指定する。`itemShape` は `square` / `rounded` / `pill`、`instantItemShape` は `diamond` / `circle` / `star`、`dependencyLineStyle` は `solid` / `dashed` のいずれかとする。
 
 テーマ JSON は厳格に検証し、未知の項目、不足項目、不正な色・線幅、未対応バージョンがあれば読み込まない。将来のレーン高、アイテム形状、依存線スタイルなども `tokens` に追加する。

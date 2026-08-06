@@ -13,8 +13,14 @@ export type TimelineThemeDefinition = {
   boundaryTickLabel: string;
   dependencyLine: string;
   dependencyLineWidth: number;
+  dependencyLineStyle: "solid" | "dashed";
+  itemHeightPercent: number;
+  lanePaddingPercent: number;
+  laneRowGapPercent: number;
   itemStroke: string;
   itemStrokeWidth: number;
+  itemShape: "square" | "rounded" | "pill";
+  instantItemShape: "diamond" | "circle" | "star";
   itemLabel: string;
   itemLabelOnColor: string;
 };
@@ -37,8 +43,14 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
     boundaryTickLabel: "#0f172a",
     dependencyLine: "#64748b",
     dependencyLineWidth: 2,
+    dependencyLineStyle: "solid",
+    itemHeightPercent: 100,
+    lanePaddingPercent: 100,
+    laneRowGapPercent: 100,
     itemStroke: "#ffffff",
     itemStrokeWidth: 2,
+    itemShape: "rounded",
+    instantItemShape: "diamond",
     itemLabel: "#0f172a",
     itemLabelOnColor: "#ffffff",
     uiSelectionStroke: "#0f172a",
@@ -56,8 +68,14 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
     boundaryTickLabel: "#f8fafc",
     dependencyLine: "#94a3b8",
     dependencyLineWidth: 2,
+    dependencyLineStyle: "solid",
+    itemHeightPercent: 100,
+    lanePaddingPercent: 100,
+    laneRowGapPercent: 100,
     itemStroke: "#0f172a",
     itemStrokeWidth: 2,
+    itemShape: "rounded",
+    instantItemShape: "diamond",
     itemLabel: "#e2e8f0",
     itemLabelOnColor: "#ffffff",
     uiSelectionStroke: "#38bdf8",
@@ -72,7 +90,7 @@ export const timelineThemeLabels: Record<TimelineThemePreset, string> = {
 export const timelineThemeEntries: {
   key: keyof TimelineThemeDefinition;
   label: string;
-  type: "color" | "width";
+  type: "color" | "width" | "percent" | "select";
 }[] = [
   { key: "timelineBackground", label: "背景", type: "color" },
   { key: "headerBackground", label: "ヘッダー背景", type: "color" },
@@ -86,8 +104,14 @@ export const timelineThemeEntries: {
   { key: "boundaryTickLabel", label: "境界目盛りラベル", type: "color" },
   { key: "dependencyLine", label: "線", type: "color" },
   { key: "dependencyLineWidth", label: "線", type: "width" },
+  { key: "dependencyLineStyle", label: "スタイル", type: "select" },
+  { key: "itemHeightPercent", label: "アイテム高（%）", type: "percent" },
+  { key: "lanePaddingPercent", label: "上下余白（%）", type: "percent" },
+  { key: "laneRowGapPercent", label: "行間（%）", type: "percent" },
   { key: "itemStroke", label: "枠線", type: "color" },
   { key: "itemStrokeWidth", label: "枠線", type: "width" },
+  { key: "itemShape", label: "期間アイテム形状", type: "select" },
+  { key: "instantItemShape", label: "時点アイテム形状", type: "select" },
   { key: "itemLabel", label: "ラベル", type: "color" },
   { key: "itemLabelOnColor", label: "バー内ラベル", type: "color" },
 ];
@@ -110,12 +134,30 @@ export const timelineThemeSections = [
   },
   {
     label: "レーン",
-    keys: ["laneBackground", "laneBorder", "laneBorderWidth", "laneLabel"],
+    keys: [
+      "laneBackground",
+      "laneBorder",
+      "laneBorderWidth",
+      "lanePaddingPercent",
+      "laneRowGapPercent",
+      "laneLabel",
+    ],
   },
-  { label: "依存関係", keys: ["dependencyLine", "dependencyLineWidth"] },
+  {
+    label: "依存関係",
+    keys: ["dependencyLine", "dependencyLineWidth", "dependencyLineStyle"],
+  },
   {
     label: "アイテム",
-    keys: ["itemStroke", "itemStrokeWidth", "itemLabel", "itemLabelOnColor"],
+    keys: [
+      "itemHeightPercent",
+      "itemStroke",
+      "itemStrokeWidth",
+      "itemShape",
+      "instantItemShape",
+      "itemLabel",
+      "itemLabelOnColor",
+    ],
   },
 ] as const satisfies ReadonlyArray<{
   label: string;

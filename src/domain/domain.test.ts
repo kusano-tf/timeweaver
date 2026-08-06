@@ -380,6 +380,15 @@ describe("表示範囲・派生出力", () => {
         schemaVersion: themeSchemaVersion,
         tokens: {
           ...getThemeTokens(timelineThemes.light),
+          itemShape: "triangle",
+        },
+      }).ok,
+    ).toBe(false);
+    expect(
+      parseTimelineThemeDocument({
+        schemaVersion: themeSchemaVersion,
+        tokens: {
+          ...getThemeTokens(timelineThemes.light),
           itemStrokeWidth: 1.2,
         },
       }).ok,

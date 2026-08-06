@@ -13,11 +13,23 @@ const widthSchema = z
   .min(0.5, "線幅は 0.5 以上にしてください。")
   .max(8, "線幅は 8 以下にしてください。")
   .multipleOf(0.5, "線幅は 0.5 刻みで指定してください。");
+const percentSchema = z.number().min(50).max(200).multipleOf(5);
+const selectSchemas = {
+  dependencyLineStyle: z.enum(["solid", "dashed"]),
+  itemShape: z.enum(["square", "rounded", "pill"]),
+  instantItemShape: z.enum(["diamond", "circle", "star"]),
+} as const;
 
 const tokenShape = Object.fromEntries(
   timelineThemeTokenKeys.map((key) => [
     key,
-    key.endsWith("Width") ? widthSchema : colorSchema,
+    key.endsWith("Width")
+      ? widthSchema
+      : key.endsWith("Percent")
+        ? percentSchema
+        : key in selectSchemas
+          ? selectSchemas[key as keyof typeof selectSchemas]
+          : colorSchema,
   ]),
 ) as Record<
   keyof TimelineThemeDefinition,

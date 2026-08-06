@@ -500,7 +500,7 @@ export function Toolbar() {
                                   }
                                 />
                               </>
-                            ) : (
+                            ) : entry.type === "width" ? (
                               <input
                                 aria-label={`${entry.label}の太さ`}
                                 className="themeWidthInput"
@@ -516,6 +516,54 @@ export function Toolbar() {
                                   )
                                 }
                               />
+                            ) : entry.type === "percent" ? (
+                              <input
+                                aria-label={`${entry.label}の倍率`}
+                                className="themeWidthInput"
+                                type="number"
+                                min="50"
+                                max="200"
+                                step="5"
+                                value={value}
+                                onChange={(event) =>
+                                  updateThemeToken(
+                                    entry.key,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            ) : (
+                              <select
+                                aria-label={entry.label}
+                                value={value}
+                                onChange={(event) =>
+                                  updateThemeToken(
+                                    entry.key,
+                                    event.target.value,
+                                  )
+                                }
+                              >
+                                {entry.key === "dependencyLineStyle" && (
+                                  <>
+                                    <option value="solid">実線</option>
+                                    <option value="dashed">点線</option>
+                                  </>
+                                )}
+                                {entry.key === "itemShape" && (
+                                  <>
+                                    <option value="square">四角</option>
+                                    <option value="rounded">角丸</option>
+                                    <option value="pill">ピル型</option>
+                                  </>
+                                )}
+                                {entry.key === "instantItemShape" && (
+                                  <>
+                                    <option value="diamond">ひし形</option>
+                                    <option value="circle">丸</option>
+                                    <option value="star">星</option>
+                                  </>
+                                )}
+                              </select>
                             )}
                             <button
                               type="button"
@@ -616,6 +664,18 @@ function parseThemeToken(
   key: keyof TimelineThemeDefinition,
   value: string,
 ): string | number | undefined {
+  if (key.endsWith("Percent")) {
+    const percent = Number(value);
+    return percent >= 50 && percent <= 200 && percent % 5 === 0
+      ? percent
+      : undefined;
+  }
+  if (key === "dependencyLineStyle")
+    return value === "solid" || value === "dashed" ? value : undefined;
+  if (key === "itemShape")
+    return ["square", "rounded", "pill"].includes(value) ? value : undefined;
+  if (key === "instantItemShape")
+    return ["diamond", "circle", "star"].includes(value) ? value : undefined;
   if (!key.endsWith("Width"))
     return /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined;
   const width = Number(value);
