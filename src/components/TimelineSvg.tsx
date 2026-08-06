@@ -487,7 +487,7 @@ export function TimelineSvg() {
             d={`M ${x} ${y} L ${x + 12} ${y + 12} L ${x} ${y + 24} L ${x - 12} ${y + 12} Z`}
             fill={color}
             stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
-            strokeWidth={isSelected ? 3 : 2}
+            strokeWidth={theme.itemStrokeWidth + (isSelected ? 1 : 0)}
             data-selected-stroke={isSelected ? "true" : undefined}
           />
           {document.view.itemDisplay.showLabels && (
@@ -515,7 +515,7 @@ export function TimelineSvg() {
           rx={6}
           fill={color}
           stroke={isSelected ? theme.uiSelectionStroke : theme.itemStroke}
-          strokeWidth={isSelected ? 3 : 2}
+          strokeWidth={theme.itemStrokeWidth + (isSelected ? 1 : 0)}
           data-selected-stroke={isSelected ? "true" : undefined}
         />
         {document.view.itemDisplay.showLabels && (
@@ -631,7 +631,14 @@ export function TimelineSvg() {
                 height={laneHeight}
                 fill={theme.laneBackground}
               />
-              <line x1={0} x2={width} y1={y} y2={y} stroke={theme.laneBorder} />
+              <line
+                x1={0}
+                x2={width}
+                y1={y}
+                y2={y}
+                stroke={theme.laneBorder}
+                strokeWidth={theme.laneBorderWidth}
+              />
               <text className="laneLabel" fill={theme.laneLabel}>
                 {splitLaneNameLines(lane.name).map((line, index, lines) => (
                   <tspan
@@ -666,25 +673,25 @@ export function TimelineSvg() {
           </clipPath>
           <marker
             id="arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="3"
+            markerWidth="16"
+            markerHeight="16"
+            refX="12"
+            refY="6"
             orient="auto"
-            markerUnits="strokeWidth"
+            markerUnits="userSpaceOnUse"
           >
-            <path d="M 0 0 L 8 3 L 0 6 z" fill={theme.dependencyLine} />
+            <path d="M 0 0 L 12 6 L 0 12 z" fill={theme.dependencyLine} />
           </marker>
           <marker
             id="selected-arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="3"
+            markerWidth="16"
+            markerHeight="16"
+            refX="12"
+            refY="6"
             orient="auto"
-            markerUnits="strokeWidth"
+            markerUnits="userSpaceOnUse"
           >
-            <path d="M 0 0 L 8 3 L 0 6 z" fill={theme.uiSelectionStroke} />
+            <path d="M 0 0 L 12 6 L 0 12 z" fill={theme.uiSelectionStroke} />
           </marker>
         </defs>
         <g clipPath="url(#timeline-plot-clip)">
@@ -709,7 +716,7 @@ export function TimelineSvg() {
                     isSelected ? theme.uiSelectionStroke : theme.dependencyLine
                   }
                   opacity={isSelected ? 1 : 0.55}
-                  strokeWidth={isSelected ? 3 : 2}
+                  strokeWidth={theme.dependencyLineWidth + (isSelected ? 1 : 0)}
                   className="dependencyLine"
                   data-selected-dependency={isSelected ? "true" : undefined}
                   markerEnd={
@@ -975,7 +982,8 @@ function TimelineTicks({
         x2={laneHeaderWidth}
         y1={0}
         y2={height}
-        stroke={theme.laneBorder}
+        stroke={theme.axisLine}
+        strokeWidth={theme.axisLineWidth}
       />
       {ticks.map((tick) => {
         const x = xForDate(tick);
@@ -987,8 +995,8 @@ function TimelineTicks({
               x2={x}
               y1={0}
               y2={height}
-              stroke={theme.laneBorder}
-              strokeWidth={isBoundary ? 1.5 : 1}
+              stroke={theme.axisLine}
+              strokeWidth={theme.axisLineWidth * (isBoundary ? 1.5 : 1)}
             />
             {shouldShowTickLabel(scale, tick, labelInterval, isBoundary) &&
               !hasBoundaryLabelCollision(x, boundaryLabelPositions) && (

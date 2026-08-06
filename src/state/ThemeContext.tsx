@@ -14,6 +14,7 @@ import {
   type TimelineThemeDefinition,
   type TimelineThemePreset,
   timelineThemes,
+  timelineThemeTokenKeys,
 } from "../domain/theme";
 
 const storageKey = "timeweaver.current-theme.v1";
@@ -98,7 +99,13 @@ function loadStoredTheme(): StoredTheme {
     if (
       (parsed.preset !== "light" && parsed.preset !== "dark") ||
       typeof parsed.custom !== "boolean" ||
-      !parsed.tokens
+      !parsed.tokens ||
+      !timelineThemeTokenKeys.every((key) => {
+        const value = (parsed.tokens as Record<string, unknown>)[key];
+        return key.endsWith("Width")
+          ? typeof value === "number"
+          : typeof value === "string";
+      })
     ) {
       return fallback;
     }

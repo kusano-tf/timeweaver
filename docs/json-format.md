@@ -339,13 +339,18 @@ to.start = from.end + (lag + 1) * timeline.granularity
   "tokens": {
     "timelineBackground": "#ffffff",
     "headerBackground": "#f8fafc",
+    "axisLine": "#e2e8f0",
+    "axisLineWidth": 1,
     "laneBackground": "#f8fafc",
     "laneBorder": "#e2e8f0",
+    "laneBorderWidth": 1,
     "laneLabel": "#334155",
     "tickLabel": "#475569",
     "boundaryTickLabel": "#0f172a",
     "dependencyLine": "#64748b",
+    "dependencyLineWidth": 2,
     "itemStroke": "#ffffff",
+    "itemStrokeWidth": 2,
     "itemLabel": "#0f172a",
     "itemLabelOnColor": "#ffffff"
   }
@@ -353,6 +358,6 @@ to.start = from.end + (lag + 1) * timeline.granularity
 ```
 
 - `schemaVersion`: テーマ形式のバージョン。現時点では `"1.0.0"`。
-- `tokens`: テーマ項目の辞書。現時点では上記 11 項目をすべて `#RRGGBB` 形式で指定する。
+- `tokens`: テーマ項目の辞書。色は `#RRGGBB`、線幅は `0.5`〜`8` の `0.5` 刻みの数値で、上記の全項目を指定する。`axisLine` / `axisLineWidth` は時間軸の線・目盛り線、`laneBorder` / `laneBorderWidth` はレーン境界線に使う。
 
-テーマ JSON は厳格に検証し、未知の項目、不足項目、不正な色、未対応バージョンがあれば読み込まない。将来の線幅、レーン高、アイテム形状、依存線スタイルなども `tokens` に追加する。
+テーマ JSON は厳格に検証し、未知の項目、不足項目、不正な色・線幅、未対応バージョンがあれば読み込まない。将来のレーン高、アイテム形状、依存線スタイルなども `tokens` に追加する。

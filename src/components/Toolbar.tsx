@@ -18,6 +18,7 @@ import {
   type TimelineThemeDefinition,
   timelineThemeEntries,
   timelineThemeLabels,
+  timelineThemeSections,
   timelineThemes,
 } from "../domain/theme";
 import {
@@ -201,7 +202,7 @@ export function Toolbar() {
       tokens: getThemeTokens(theme),
       custom: activeThemeIsCustom,
     });
-    setThemeHexValues(getThemeTokens(theme));
+    setThemeHexValues(getThemeTokenValues(getThemeTokens(theme)));
     setThemeDialogOpen(true);
     setExportMenuOpen(false);
   }
@@ -215,7 +216,7 @@ export function Toolbar() {
 
   function previewDraft(next: StoredTheme) {
     setThemeDraft(next);
-    setThemeHexValues(next.tokens);
+    setThemeHexValues(getThemeTokenValues(next.tokens));
     previewTheme(next);
   }
 
@@ -241,6 +242,24 @@ export function Toolbar() {
     });
   }
 
+  function updateThemeToken(key: keyof TimelineThemeDefinition, value: string) {
+    if (!themeDraft) return;
+    setThemeHexValues((current) => ({
+      ...(current ?? getThemeTokenValues(themeDraft.tokens)),
+      [key]: value,
+    }));
+    const parsed = parseThemeToken(key, value);
+    if (parsed === undefined) return;
+    previewDraft({
+      ...themeDraft,
+      tokens: {
+        ...themeDraft.tokens,
+        [key]: parsed,
+      } as TimelineThemeDefinition,
+      custom: true,
+    });
+  }
+
   function resetTheme() {
     if (!themeDraft) {
       return;
@@ -249,12 +268,7 @@ export function Toolbar() {
   }
 
   function saveThemeEdit() {
-    if (
-      !themeHexValues ||
-      !Object.values(themeHexValues).every((value) =>
-        /^#[0-9a-fA-F]{6}$/.test(value),
-      )
-    ) {
+    if (!themeHexValues || !isThemeTokenValuesValid(themeHexValues)) {
       return;
     }
     commitPreview();
@@ -426,7 +440,7 @@ export function Toolbar() {
             </section>
             <section className="themeDialogSection">
               <div className="themeSectionHeading">
-                <h3>タイムライン</h3>
+                <h3>外観</h3>
                 <button type="button" onClick={resetTheme}>
                   プリセットへ戻す
                 </button>
@@ -441,71 +455,81 @@ export function Toolbar() {
                   </ul>
                 </div>
               )}
-              <dl className="themeTokenList">
-                {timelineThemeEntries.map((entry) => {
-                  const value =
-                    themeHexValues?.[entry.key] ??
-                    themeDraft?.tokens[entry.key] ??
-                    theme[entry.key];
-                  return (
-                    <div key={entry.key} className="themeTokenRow">
-                      <dt>{entry.label}</dt>
-                      <dd>
-                        <input
-                          aria-label={`${entry.label}の色`}
-                          type="color"
-                          value={value}
-                          onChange={(event) => {
-                            if (!themeDraft) {
-                              return;
-                            }
-                            previewDraft({
-                              ...themeDraft,
-                              tokens: {
-                                ...themeDraft.tokens,
-                                [entry.key]: event.target.value,
-                              },
-                              custom: true,
-                            });
-                          }}
-                        />
-                        <input
-                          aria-label={`${entry.label}のHEX値`}
-                          className="themeHexInput"
-                          value={value}
-                          onChange={(event) => {
-                            if (!themeDraft) {
-                              return;
-                            }
-                            const next = event.target.value;
-                            setThemeHexValues((current) => ({
-                              ...(current ?? themeDraft.tokens),
-                              [entry.key]: next,
-                            }));
-                            if (!/^#[0-9a-fA-F]{6}$/.test(next)) {
-                              return;
-                            }
-                            previewDraft({
-                              ...themeDraft,
-                              tokens: {
-                                ...themeDraft.tokens,
-                                [entry.key]: next,
-                              },
-                              custom: true,
-                            });
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => resetThemeToken(entry.key)}
-                        >
-                          戻す
-                        </button>
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
+              {timelineThemeSections.map((section) => (
+                <section className="themeTokenSection" key={section.label}>
+                  <h4>{section.label}</h4>
+                  <dl className="themeTokenList">
+                    {section.keys.map((key) => {
+                      const entry = timelineThemeEntries.find(
+                        (item) => item.key === key,
+                      );
+                      if (!entry) {
+                        return null;
+                      }
+                      const value =
+                        themeHexValues?.[entry.key] ??
+                        String(
+                          themeDraft?.tokens[entry.key] ?? theme[entry.key],
+                        );
+                      return (
+                        <div key={entry.key} className="themeTokenRow">
+                          <dt>{entry.label}</dt>
+                          <dd>
+                            {entry.type === "color" ? (
+                              <>
+                                <input
+                                  aria-label={`${entry.label}の色`}
+                                  type="color"
+                                  value={value}
+                                  onChange={(event) =>
+                                    updateThemeToken(
+                                      entry.key,
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                                <input
+                                  aria-label={`${entry.label}のHEX値`}
+                                  className="themeHexInput"
+                                  value={value}
+                                  onChange={(event) =>
+                                    updateThemeToken(
+                                      entry.key,
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </>
+                            ) : (
+                              <input
+                                aria-label={`${entry.label}の太さ`}
+                                className="themeWidthInput"
+                                type="number"
+                                min="0.5"
+                                max="8"
+                                step="0.5"
+                                value={value}
+                                onChange={(event) =>
+                                  updateThemeToken(
+                                    entry.key,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => resetThemeToken(entry.key)}
+                            >
+                              戻す
+                            </button>
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </section>
+              ))}
             </section>
             <div className="themeDialogActions">
               <button type="button" onClick={closeThemeDialog}>
@@ -515,10 +539,7 @@ export function Toolbar() {
                 type="button"
                 className="primary"
                 disabled={
-                  !themeHexValues ||
-                  !Object.values(themeHexValues).every((value) =>
-                    /^#[0-9a-fA-F]{6}$/.test(value),
-                  )
+                  !themeHexValues || !isThemeTokenValuesValid(themeHexValues)
                 }
                 onClick={saveThemeEdit}
               >
@@ -580,6 +601,37 @@ export function Toolbar() {
         </div>
       )}
     </header>
+  );
+}
+
+function getThemeTokenValues(
+  tokens: TimelineThemeDefinition,
+): Record<keyof TimelineThemeDefinition, string> {
+  return Object.fromEntries(
+    Object.entries(tokens).map(([key, value]) => [key, String(value)]),
+  ) as Record<keyof TimelineThemeDefinition, string>;
+}
+
+function parseThemeToken(
+  key: keyof TimelineThemeDefinition,
+  value: string,
+): string | number | undefined {
+  if (!key.endsWith("Width"))
+    return /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined;
+  const width = Number(value);
+  return width >= 0.5 && width <= 8 && width * 2 === Math.round(width * 2)
+    ? width
+    : undefined;
+}
+
+function isThemeTokenValuesValid(
+  values: Record<keyof TimelineThemeDefinition, string> | null,
+) {
+  if (!values) return false;
+  return Object.entries(values).every(
+    ([key, value]) =>
+      parseThemeToken(key as keyof TimelineThemeDefinition, value) !==
+      undefined,
   );
 }
 
@@ -684,14 +736,14 @@ function clearExportSelectionState(
     .querySelectorAll<SVGElement>("[data-selected-stroke='true']")
     .forEach((element) => {
       element.setAttribute("stroke", theme.itemStroke);
-      element.setAttribute("stroke-width", "2");
+      element.setAttribute("stroke-width", String(theme.itemStrokeWidth));
       element.removeAttribute("data-selected-stroke");
     });
   svg
     .querySelectorAll<SVGElement>("[data-selected-dependency='true']")
     .forEach((element) => {
       element.setAttribute("stroke", theme.dependencyLine);
-      element.setAttribute("stroke-width", "2");
+      element.setAttribute("stroke-width", String(theme.dependencyLineWidth));
       element.setAttribute("opacity", "0.55");
       element.setAttribute("marker-end", "url(#arrow)");
       element.removeAttribute("data-selected-dependency");

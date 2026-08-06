@@ -8,10 +8,21 @@ export const themeSchemaVersion = "1.0.0" as const;
 const colorSchema = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, "色は #RRGGBB 形式で指定してください。");
+const widthSchema = z
+  .number()
+  .min(0.5, "線幅は 0.5 以上にしてください。")
+  .max(8, "線幅は 8 以下にしてください。")
+  .multipleOf(0.5, "線幅は 0.5 刻みで指定してください。");
 
 const tokenShape = Object.fromEntries(
-  timelineThemeTokenKeys.map((key) => [key, colorSchema]),
-) as Record<keyof TimelineThemeDefinition, typeof colorSchema>;
+  timelineThemeTokenKeys.map((key) => [
+    key,
+    key.endsWith("Width") ? widthSchema : colorSchema,
+  ]),
+) as Record<
+  keyof TimelineThemeDefinition,
+  typeof colorSchema | typeof widthSchema
+>;
 
 export const timelineThemeDocumentSchema = z
   .object({
@@ -34,7 +45,7 @@ export function parseTimelineThemeDocument(
 ): ParseTimelineThemeResult {
   const parsed = timelineThemeDocumentSchema.safeParse(input);
   if (parsed.success) {
-    return { ok: true, document: parsed.data };
+    return { ok: true, document: parsed.data as TimelineThemeDocument };
   }
 
   return {

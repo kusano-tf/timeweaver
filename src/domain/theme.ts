@@ -3,13 +3,18 @@ export type TimelineThemePreset = "light" | "dark";
 export type TimelineThemeDefinition = {
   timelineBackground: string;
   headerBackground: string;
+  axisLine: string;
+  axisLineWidth: number;
   laneBackground: string;
   laneBorder: string;
+  laneBorderWidth: number;
   laneLabel: string;
   tickLabel: string;
   boundaryTickLabel: string;
   dependencyLine: string;
+  dependencyLineWidth: number;
   itemStroke: string;
+  itemStrokeWidth: number;
   itemLabel: string;
   itemLabelOnColor: string;
 };
@@ -22,13 +27,18 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
   light: {
     timelineBackground: "#ffffff",
     headerBackground: "#f8fafc",
+    axisLine: "#e2e8f0",
+    axisLineWidth: 1,
     laneBackground: "#f8fafc",
     laneBorder: "#e2e8f0",
+    laneBorderWidth: 1,
     laneLabel: "#334155",
     tickLabel: "#475569",
     boundaryTickLabel: "#0f172a",
     dependencyLine: "#64748b",
+    dependencyLineWidth: 2,
     itemStroke: "#ffffff",
+    itemStrokeWidth: 2,
     itemLabel: "#0f172a",
     itemLabelOnColor: "#ffffff",
     uiSelectionStroke: "#0f172a",
@@ -36,13 +46,18 @@ export const timelineThemes: Record<TimelineThemePreset, TimelineTheme> = {
   dark: {
     timelineBackground: "#0f172a",
     headerBackground: "#111827",
+    axisLine: "#334155",
+    axisLineWidth: 1,
     laneBackground: "#1e293b",
     laneBorder: "#334155",
+    laneBorderWidth: 1,
     laneLabel: "#e2e8f0",
     tickLabel: "#cbd5e1",
     boundaryTickLabel: "#f8fafc",
     dependencyLine: "#94a3b8",
+    dependencyLineWidth: 2,
     itemStroke: "#0f172a",
+    itemStrokeWidth: 2,
     itemLabel: "#e2e8f0",
     itemLabelOnColor: "#ffffff",
     uiSelectionStroke: "#38bdf8",
@@ -57,23 +72,55 @@ export const timelineThemeLabels: Record<TimelineThemePreset, string> = {
 export const timelineThemeEntries: {
   key: keyof TimelineThemeDefinition;
   label: string;
+  type: "color" | "width";
 }[] = [
-  { key: "timelineBackground", label: "背景" },
-  { key: "headerBackground", label: "ヘッダー背景" },
-  { key: "laneBackground", label: "レーン背景" },
-  { key: "laneBorder", label: "レーン境界線" },
-  { key: "laneLabel", label: "レーンラベル" },
-  { key: "tickLabel", label: "目盛りラベル" },
-  { key: "boundaryTickLabel", label: "境界目盛りラベル" },
-  { key: "dependencyLine", label: "依存線" },
-  { key: "itemStroke", label: "アイテム枠線" },
-  { key: "itemLabel", label: "アイテムラベル" },
-  { key: "itemLabelOnColor", label: "バー内ラベル" },
+  { key: "timelineBackground", label: "背景", type: "color" },
+  { key: "headerBackground", label: "ヘッダー背景", type: "color" },
+  { key: "axisLine", label: "線・目盛り線", type: "color" },
+  { key: "axisLineWidth", label: "線・目盛り線", type: "width" },
+  { key: "laneBackground", label: "背景", type: "color" },
+  { key: "laneBorder", label: "境界線", type: "color" },
+  { key: "laneBorderWidth", label: "境界線", type: "width" },
+  { key: "laneLabel", label: "ラベル", type: "color" },
+  { key: "tickLabel", label: "目盛りラベル", type: "color" },
+  { key: "boundaryTickLabel", label: "境界目盛りラベル", type: "color" },
+  { key: "dependencyLine", label: "線", type: "color" },
+  { key: "dependencyLineWidth", label: "線", type: "width" },
+  { key: "itemStroke", label: "枠線", type: "color" },
+  { key: "itemStrokeWidth", label: "枠線", type: "width" },
+  { key: "itemLabel", label: "ラベル", type: "color" },
+  { key: "itemLabelOnColor", label: "バー内ラベル", type: "color" },
 ];
 
 export const timelineThemeTokenKeys = timelineThemeEntries.map(
   (entry) => entry.key,
 ) as (keyof TimelineThemeDefinition)[];
+
+export const timelineThemeSections = [
+  { label: "キャンバス", keys: ["timelineBackground"] },
+  {
+    label: "時間軸",
+    keys: [
+      "headerBackground",
+      "axisLine",
+      "axisLineWidth",
+      "tickLabel",
+      "boundaryTickLabel",
+    ],
+  },
+  {
+    label: "レーン",
+    keys: ["laneBackground", "laneBorder", "laneBorderWidth", "laneLabel"],
+  },
+  { label: "依存関係", keys: ["dependencyLine", "dependencyLineWidth"] },
+  {
+    label: "アイテム",
+    keys: ["itemStroke", "itemStrokeWidth", "itemLabel", "itemLabelOnColor"],
+  },
+] as const satisfies ReadonlyArray<{
+  label: string;
+  keys: readonly (keyof TimelineThemeDefinition)[];
+}>;
 
 export function createTimelineTheme(
   tokens: TimelineThemeDefinition,
